@@ -10,6 +10,7 @@ import io.github.parkkevinsb.flower.agent.runtime.ActionInputValidator;
 import io.github.parkkevinsb.flower.agent.runtime.ActionOrigin;
 import io.github.parkkevinsb.flower.agent.runtime.ActionProposal;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRegistry;
+import io.github.parkkevinsb.flower.agent.runtime.ActionRun;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRiskLevel;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRuntime;
 import io.github.parkkevinsb.flower.agent.runtime.AuditEvent;
@@ -24,6 +25,7 @@ import io.github.parkkevinsb.flower.agent.runtime.InMemoryDuplicateActionPolicy;
 import io.github.parkkevinsb.flower.agent.runtime.PolicyDecision;
 import io.github.parkkevinsb.flower.agent.runtime.PolicyDecisionType;
 import io.github.parkkevinsb.flower.agent.runtime.PolicyGate;
+import io.github.parkkevinsb.flower.agent.runtime.RunStore;
 import io.github.parkkevinsb.flower.agent.runtime.ValidationResult;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -347,23 +350,36 @@ class RuntimeParityTest {
             ActionInputValidator validator,
             Function<ActionRuntime, ActionExecutionResult> body) {
         RecordingAuditSink directAudit = new RecordingAuditSink();
+        RecordingRunStore directRuns = new RecordingRunStore();
         ActionRuntime direct = new DefaultActionRuntime(
-                registry.get(), validator, policyGate, null, supply(duplicatePolicy), directAudit, null);
+                registry.get(), validator, policyGate, null, supply(duplicatePolicy), directAudit, null, directRuns);
         ActionExecutionResult directResult = body.apply(direct);
 
         RecordingAuditSink flowAudit = new RecordingAuditSink();
+        RecordingRunStore flowRuns = new RecordingRunStore();
         ActionRuntime flow = new WorkflowActionRuntime(
-                registry.get(), validator, policyGate, null, supply(duplicatePolicy), flowAudit, null, null, null, 64);
+                registry.get(), validator, policyGate, null, supply(duplicatePolicy), flowAudit, null, null, null, 64,
+                flowRuns);
         ActionExecutionResult flowResult = body.apply(flow);
 
         assertThat(flowResult.status()).isEqualTo(directResult.status());
         assertThat(flowResult.message()).isEqualTo(directResult.message());
         assertThat(stripVolatile(flowResult.output())).isEqualTo(stripVolatile(directResult.output()));
         assertThat(project(flowAudit.events())).isEqualTo(project(directAudit.events()));
+        assertRunParity(flowRuns.last(), directRuns.last());
     }
 
     private static DuplicateActionPolicy supply(Supplier<DuplicateActionPolicy> supplier) {
         return supplier == null ? null : supplier.get();
+    }
+
+    private static void assertRunParity(ActionRun actual, ActionRun expected) {
+        assertThat(actual.status()).isEqualTo(expected.status());
+        assertThat(actual.currentStage()).isEqualTo(expected.currentStage());
+        assertThat(actual.failureReason()).isEqualTo(expected.failureReason());
+        assertThat(actual.result().status()).isEqualTo(expected.result().status());
+        assertThat(actual.result().message()).isEqualTo(expected.result().message());
+        assertThat(stripVolatile(actual.result().output())).isEqualTo(stripVolatile(expected.result().output()));
     }
 
     private static ActionExecutionResult runTransientValidatorSequence(boolean flowRuntime) {
@@ -541,6 +557,42 @@ class RuntimeParityTest {
 
         List<AuditEvent> events() {
             return events;
+        }
+    }
+
+    private static final class RecordingRunStore implements RunStore {
+        private final Map<String, ActionRun> byId = new LinkedHashMap<>();
+        private ActionRun last;
+
+        @Override
+        public ActionRun create(ActionRun run) {
+            byId.put(run.runId(), run);
+            last = run;
+            return run;
+        }
+
+        @Override
+        public Optional<ActionRun> find(String runId) {
+            return Optional.ofNullable(byId.get(runId));
+        }
+
+        @Override
+        public void update(ActionRun run) {
+            byId.put(run.runId(), run);
+            last = run;
+        }
+
+        @Override
+        public List<ActionRun> findResumable(String tenantId) {
+            String normalizedTenantId = tenantId == null ? "" : tenantId.trim();
+            return byId.values().stream()
+                    .filter(run -> run.tenantId().equals(normalizedTenantId))
+                    .filter(run -> !run.status().isTerminal())
+                    .toList();
+        }
+
+        ActionRun last() {
+            return last;
         }
     }
 }

@@ -32,8 +32,9 @@ backend. See `docs/architecture/EXECUTION_BACKEND_STRATEGY.md` (Backend Layering
 This module currently makes the action pipeline visible as Flower Steps, but it
 does not yet provide full durable recovery.
 
-`ActionExecutionSession` is still an in-memory Java object. A future durable
-backend must split that session into:
+`ActionRun` now provides the first persisted execution spine through `RunStore`,
+but `ActionExecutionSession` is still an in-memory Java object and this backend
+still drains synchronously. A future durable backend must split that session into:
 
 - snapshot state: proposal, execution context, duplicate decision, policy
   decision, and result

@@ -11,6 +11,7 @@ Project documentation is grouped by maturity and purpose.
 
 - [Minimal Control Model](architecture/MINIMAL_CONTROL_MODEL.md)
 - [Controlled Action State Machine](architecture/CONTROLLED_ACTION_STATE_MACHINE.md)
+- [ActionRun Persistence Model](architecture/ACTION_RUN_PERSISTENCE.md)
 - [Execution Backend Strategy](architecture/EXECUTION_BACKEND_STRATEGY.md)
 - [Agent Worker Annotation Model](architecture/AGENT_WORKER_ANNOTATION_MODEL.md)
 - [Module Structure](architecture/MODULE_STRUCTURE.md)

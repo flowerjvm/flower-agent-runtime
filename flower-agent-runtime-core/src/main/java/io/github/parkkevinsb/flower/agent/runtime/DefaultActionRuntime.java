@@ -5,8 +5,8 @@ import java.util.Objects;
 /**
  * Direct, synchronous action runtime.
  *
- * <p>It runs the shared {@link ActionPipeline} stages in-thread. Use this when an action does not need durable
- * workflow state, waiting, or recovery. For those, use the Flower Flow backend, which runs the same stages.</p>
+ * <p>It runs the shared {@link ActionPipeline} stages in-thread and acts as the reference backend for
+ * controlled-action semantics.</p>
  */
 public final class DefaultActionRuntime implements ActionRuntime {
     private final ActionRegistry registry;
@@ -16,6 +16,7 @@ public final class DefaultActionRuntime implements ActionRuntime {
     private final DuplicateActionPolicy duplicateActionPolicy;
     private final AuditSink auditSink;
     private final TraceSink traceSink;
+    private final RunStore runStore;
 
     public DefaultActionRuntime(
             ActionRegistry registry,
@@ -25,6 +26,19 @@ public final class DefaultActionRuntime implements ActionRuntime {
             DuplicateActionPolicy duplicateActionPolicy,
             AuditSink auditSink,
             TraceSink traceSink) {
+        this(registry, inputValidator, policyGate, approvalGate, duplicateActionPolicy, auditSink, traceSink,
+                RunStore.noop());
+    }
+
+    public DefaultActionRuntime(
+            ActionRegistry registry,
+            ActionInputValidator inputValidator,
+            PolicyGate policyGate,
+            ApprovalGate approvalGate,
+            DuplicateActionPolicy duplicateActionPolicy,
+            AuditSink auditSink,
+            TraceSink traceSink,
+            RunStore runStore) {
         this.registry = Objects.requireNonNull(registry, "registry must not be null");
         this.inputValidator = inputValidator == null ? ActionInputValidator.allowAll() : inputValidator;
         this.policyGate = policyGate == null ? new DefaultPolicyGate() : policyGate;
@@ -34,6 +48,7 @@ public final class DefaultActionRuntime implements ActionRuntime {
                 : duplicateActionPolicy;
         this.auditSink = auditSink == null ? AuditSink.noop() : auditSink;
         this.traceSink = traceSink == null ? TraceSink.noop() : traceSink;
+        this.runStore = runStore == null ? RunStore.noop() : runStore;
     }
 
     public DefaultActionRuntime(ActionRegistry registry) {
@@ -53,7 +68,8 @@ public final class DefaultActionRuntime implements ActionRuntime {
                 approvalGate,
                 duplicateActionPolicy,
                 auditSink,
-                traceSink);
+                traceSink,
+                runStore);
         return ActionPipeline.run(session);
     }
 }

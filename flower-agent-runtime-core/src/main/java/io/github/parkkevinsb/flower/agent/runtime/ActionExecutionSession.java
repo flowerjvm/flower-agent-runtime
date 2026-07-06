@@ -2,6 +2,8 @@ package io.github.parkkevinsb.flower.agent.runtime;
 
 import java.util.Map;
 import java.util.Objects;
+import java.time.Instant;
+import java.util.function.UnaryOperator;
 
 /**
  * Mutable state shared across the stages of one controlled action execution.
@@ -20,7 +22,9 @@ public final class ActionExecutionSession {
     private final DuplicateActionPolicy duplicateActionPolicy;
     private final AuditSink auditSink;
     private final TraceSink traceSink;
+    private final RunStore runStore;
 
+    private ActionRun run;
     private DuplicateActionDecision duplicateDecision;
     private ActionExecutor executor;
     private ActionDefinition definition;
@@ -38,7 +42,8 @@ public final class ActionExecutionSession {
             ApprovalGate approvalGate,
             DuplicateActionPolicy duplicateActionPolicy,
             AuditSink auditSink,
-            TraceSink traceSink) {
+            TraceSink traceSink,
+            RunStore runStore) {
         this.proposal = Objects.requireNonNull(proposal, "proposal must not be null");
         this.context = Objects.requireNonNull(context, "context must not be null");
         this.registry = Objects.requireNonNull(registry, "registry must not be null");
@@ -49,6 +54,8 @@ public final class ActionExecutionSession {
                 Objects.requireNonNull(duplicateActionPolicy, "duplicateActionPolicy must not be null");
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink must not be null");
         this.traceSink = Objects.requireNonNull(traceSink, "traceSink must not be null");
+        this.runStore = Objects.requireNonNull(runStore, "runStore must not be null");
+        this.run = ActionRun.requested(proposal, context);
     }
 
     public ActionProposal proposal() {
@@ -57,6 +64,30 @@ public final class ActionExecutionSession {
 
     public ExecutionContext context() {
         return context;
+    }
+
+    public ActionRun run() {
+        return run;
+    }
+
+    void beginRun(String stageId) {
+        run = run.toBuilder()
+                .currentStage(stageId)
+                .updatedAt(Instant.now())
+                .build();
+        runStore.create(run);
+    }
+
+    void enterStage(String stageId) {
+        updateRun(current -> current.toBuilder().currentStage(stageId).build());
+    }
+
+    void updateRun(UnaryOperator<ActionRun> op) {
+        run = Objects.requireNonNull(op.apply(run), "updated run must not be null")
+                .toBuilder()
+                .updatedAt(Instant.now())
+                .build();
+        runStore.update(run);
     }
 
     ActionRegistry registry() {

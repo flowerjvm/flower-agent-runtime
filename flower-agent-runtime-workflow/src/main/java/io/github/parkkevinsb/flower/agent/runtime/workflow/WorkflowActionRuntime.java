@@ -13,6 +13,7 @@ import io.github.parkkevinsb.flower.agent.runtime.DefaultPolicyGate;
 import io.github.parkkevinsb.flower.agent.runtime.DuplicateActionPolicy;
 import io.github.parkkevinsb.flower.agent.runtime.ExecutionContext;
 import io.github.parkkevinsb.flower.agent.runtime.PolicyGate;
+import io.github.parkkevinsb.flower.agent.runtime.RunStore;
 import io.github.parkkevinsb.flower.agent.runtime.TraceSink;
 import io.github.parkkevinsb.flower.core.event.EventBus;
 import io.github.parkkevinsb.flower.core.event.InMemoryEventBus;
@@ -28,8 +29,8 @@ import java.util.Objects;
  *
  * <p>It runs the same {@link ActionPipeline} stages as
  * {@link io.github.parkkevinsb.flower.agent.runtime.DefaultActionRuntime}, but each stage becomes a Flow Step so
- * the execution can be inspected, waited on, and (in future) suspended or recovered. Governance behavior stays
- * identical because both backends share the one stage definition.</p>
+ * the execution can be inspected through Flower's Flow/Step model. Governance behavior stays identical because both
+ * backends share the one stage definition.</p>
  */
 public final class WorkflowActionRuntime implements ActionRuntime {
     public static final String FLOW_TYPE = "flower-agent-runtime-action";
@@ -42,6 +43,7 @@ public final class WorkflowActionRuntime implements ActionRuntime {
     private final DuplicateActionPolicy duplicateActionPolicy;
     private final AuditSink auditSink;
     private final TraceSink traceSink;
+    private final RunStore runStore;
     private final Clock clock;
     private final EventBus eventBus;
     private final int maxSyncTicks;
@@ -57,6 +59,22 @@ public final class WorkflowActionRuntime implements ActionRuntime {
             Clock clock,
             EventBus eventBus,
             int maxSyncTicks) {
+        this(registry, inputValidator, policyGate, approvalGate, duplicateActionPolicy, auditSink, traceSink,
+                clock, eventBus, maxSyncTicks, RunStore.noop());
+    }
+
+    public WorkflowActionRuntime(
+            ActionRegistry registry,
+            ActionInputValidator inputValidator,
+            PolicyGate policyGate,
+            ApprovalGate approvalGate,
+            DuplicateActionPolicy duplicateActionPolicy,
+            AuditSink auditSink,
+            TraceSink traceSink,
+            Clock clock,
+            EventBus eventBus,
+            int maxSyncTicks,
+            RunStore runStore) {
         this.registry = Objects.requireNonNull(registry, "registry must not be null");
         this.inputValidator = inputValidator == null ? ActionInputValidator.allowAll() : inputValidator;
         this.policyGate = policyGate == null ? new DefaultPolicyGate() : policyGate;
@@ -66,6 +84,7 @@ public final class WorkflowActionRuntime implements ActionRuntime {
                 : duplicateActionPolicy;
         this.auditSink = auditSink == null ? AuditSink.noop() : auditSink;
         this.traceSink = traceSink == null ? TraceSink.noop() : traceSink;
+        this.runStore = runStore == null ? RunStore.noop() : runStore;
         this.clock = clock == null ? SystemClock.INSTANCE : clock;
         this.eventBus = eventBus == null ? InMemoryEventBus.create() : eventBus;
         this.maxSyncTicks = maxSyncTicks <= 0 ? DEFAULT_MAX_SYNC_TICKS : maxSyncTicks;
@@ -111,7 +130,8 @@ public final class WorkflowActionRuntime implements ActionRuntime {
                 approvalGate,
                 duplicateActionPolicy,
                 auditSink,
-                traceSink);
+                traceSink,
+                runStore);
     }
 
     public Flow createFlow(ActionExecutionSession session) {

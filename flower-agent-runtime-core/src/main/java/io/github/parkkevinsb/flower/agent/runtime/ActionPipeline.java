@@ -2,6 +2,7 @@ package io.github.parkkevinsb.flower.agent.runtime;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * The controlled action pipeline: the single source of truth for stage order, branching, and audit payloads.
@@ -78,6 +79,7 @@ public final class ActionPipeline {
         if (!session.hasResult()) {
             session.result(ActionExecutionResult.failed(message));
         }
+        bestEffortRuntimeFailureRunUpdate(session, message);
         bestEffortRuntimeFailureAudit(session, message, cause);
         bestEffortReleaseReservedDuplicate(session, cause);
         return session.result();
@@ -91,16 +93,19 @@ public final class ActionPipeline {
         if (!session.hasResult()) {
             session.result(ActionExecutionResult.failed(message));
         }
+        bestEffortFinalizeFailureRunUpdate(session, message);
         bestEffortRuntimeFailureAudit(session, message, cause);
         return session.result();
     }
 
     static StageOutcome recordProposal(ActionExecutionSession session) {
+        session.beginRun("record-proposal");
         session.record(AuditEventType.ACTION_PROPOSED, Map.of("origin", session.proposal().origin().name()));
         return StageOutcome.CONTINUE;
     }
 
     static StageOutcome reserveDuplicate(ActionExecutionSession session) {
+        session.enterStage("reserve-duplicate");
         DuplicateActionDecision decision =
                 session.duplicateActionPolicy().reserve(session.proposal(), session.context());
         session.duplicateDecision(decision);
@@ -111,15 +116,27 @@ public final class ActionPipeline {
         session.result(decision.type() == DuplicateActionDecisionType.RETURN_EXISTING
                 ? decision.existingResult()
                 : ActionExecutionResult.denied(decision.reason()));
+        session.updateRun(run -> run.toBuilder()
+                .status(actionRunStatus(session.result()))
+                .result(session.result())
+                .failureReason(session.result().message())
+                .build());
         return StageOutcome.SHORT_CIRCUIT;
     }
 
     static StageOutcome resolveAction(ActionExecutionSession session) {
+        session.enterStage("resolve-action");
+        session.updateRun(run -> run.toBuilder().status(ActionRunStatus.VALIDATING).build());
         ActionExecutor executor = session.registry().findExecutor(session.proposal().actionId()).orElse(null);
         if (executor == null) {
             ActionExecutionResult result =
                     ActionExecutionResult.denied("Action is not registered: " + session.proposal().actionId());
             session.result(result);
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.DENIED)
+                    .result(result)
+                    .failureReason(result.message())
+                    .build());
             session.record(AuditEventType.ACTION_DENIED, Map.of("reason", result.message()));
             return StageOutcome.SHORT_CIRCUIT;
         }
@@ -132,6 +149,7 @@ public final class ActionPipeline {
     }
 
     static StageOutcome validateInput(ActionExecutionSession session) {
+        session.enterStage("validate-input");
         ValidationResult validation =
                 session.inputValidator().validate(session.proposal(), session.definition(), session.context());
         session.validationResult(validation);
@@ -140,6 +158,11 @@ public final class ActionPipeline {
             ActionExecutionResult result =
                     ActionExecutionResult.validationFailed(String.join("; ", validation.violations()));
             session.result(result);
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.DENIED)
+                    .result(result)
+                    .failureReason(result.message())
+                    .build());
             session.record(AuditEventType.ACTION_DENIED, Map.of("reason", result.message()));
             return StageOutcome.SHORT_CIRCUIT;
         }
@@ -147,9 +170,15 @@ public final class ActionPipeline {
     }
 
     static StageOutcome evaluatePolicy(ActionExecutionSession session) {
+        session.enterStage("evaluate-policy");
         PolicyDecision decision =
                 session.policyGate().evaluate(session.proposal(), session.definition(), session.context());
         session.policyDecision(decision);
+        session.updateRun(run -> run.toBuilder()
+                .status(ActionRunStatus.POLICY_EVALUATED)
+                .policyDecisionType(decision.type())
+                .policyReason(decision.reason())
+                .build());
         session.record(AuditEventType.POLICY_EVALUATED, Map.of("type", decision.type().name()));
         if (decision.requiresApproval()) {
             ApprovalRequest approval = session.approvalGate()
@@ -157,12 +186,22 @@ public final class ActionPipeline {
             session.result(ActionExecutionResult.pendingApproval(
                     decision.reason(),
                     Map.of("approvalId", approval.approvalId())));
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.WAITING_APPROVAL)
+                    .approvalId(approval.approvalId())
+                    .result(session.result())
+                    .build());
             session.record(AuditEventType.APPROVAL_REQUESTED, Map.of("approvalId", approval.approvalId()));
             return StageOutcome.SHORT_CIRCUIT;
         }
         if (!decision.allowedToExecuteNow()) {
             ActionExecutionResult result = ActionExecutionResult.denied(decision.reason());
             session.result(result);
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.DENIED)
+                    .result(result)
+                    .failureReason(result.message())
+                    .build());
             session.record(AuditEventType.ACTION_DENIED, Map.of("reason", result.message()));
             return StageOutcome.SHORT_CIRCUIT;
         }
@@ -170,6 +209,7 @@ public final class ActionPipeline {
     }
 
     static StageOutcome executeAction(ActionExecutionSession session) {
+        session.enterStage("execute-action");
         ActionExecutionContext actionContext = new ActionExecutionContext(
                 session.context(),
                 session.proposal(),
@@ -179,6 +219,10 @@ public final class ActionPipeline {
             ActionExecutionResult dryRun = session.executor().dryRun(actionContext);
             session.record(AuditEventType.DRY_RUN_COMPLETED, dryRun.output());
         }
+        session.updateRun(run -> run.toBuilder()
+                .status(ActionRunStatus.RUNNING)
+                .attemptToken(UUID.randomUUID().toString())
+                .build());
         session.record(AuditEventType.ACTION_EXECUTION_STARTED, Map.of());
         session.markActionExecutionStarted();
         ActionExecutionResult result;
@@ -187,10 +231,22 @@ public final class ActionPipeline {
         } catch (RuntimeException exception) {
             result = ActionExecutionResult.failed(failureMessage(exception));
             session.result(result);
+            ActionExecutionResult failedResult = result;
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.FAILED)
+                    .result(failedResult)
+                    .failureReason(failedResult.message())
+                    .build());
             session.record(AuditEventType.ACTION_EXECUTION_FAILED, Map.of("message", result.message()));
             return StageOutcome.CONTINUE;
         }
         session.result(result);
+        ActionExecutionResult executionResult = result;
+        session.updateRun(run -> run.toBuilder()
+                .status(actionRunStatus(executionResult))
+                .result(executionResult)
+                .failureReason(executionResult.terminalSuccess() ? "" : executionResult.message())
+                .build());
         session.record(result.terminalSuccess()
                 ? AuditEventType.ACTION_EXECUTION_COMPLETED
                 : AuditEventType.ACTION_EXECUTION_FAILED, result.output());
@@ -206,6 +262,13 @@ public final class ActionPipeline {
                 session.duplicateActionPolicy().release(session.proposal(), null);
             }
         }
+        session.updateRun(run -> {
+            ActionRun.Builder builder = run.toBuilder().result(session.result());
+            if (!run.status().isTerminal()) {
+                builder.status(actionRunStatus(session.result()));
+            }
+            return builder.build();
+        });
         return StageOutcome.CONTINUE;
     }
 
@@ -222,6 +285,40 @@ public final class ActionPipeline {
 
     private static boolean isDuplicateCacheable(ActionExecutionResult result) {
         return result.status() != ActionExecutionStatus.PENDING_APPROVAL;
+    }
+
+    private static ActionRunStatus actionRunStatus(ActionExecutionResult result) {
+        return switch (result.status()) {
+            case SUCCEEDED -> ActionRunStatus.SUCCEEDED;
+            case FAILED -> ActionRunStatus.FAILED;
+            case DENIED, VALIDATION_FAILED, DUPLICATE -> ActionRunStatus.DENIED;
+            case PENDING_APPROVAL -> ActionRunStatus.WAITING_APPROVAL;
+        };
+    }
+
+    private static void bestEffortRuntimeFailureRunUpdate(ActionExecutionSession session, String message) {
+        try {
+            if (!session.run().status().isTerminal()) {
+                session.updateRun(run -> run.toBuilder()
+                        .status(ActionRunStatus.RUNTIME_FAILED)
+                        .failureReason(message)
+                        .result(session.result())
+                        .build());
+            }
+        } catch (Throwable ignored) {
+            // Failure handling must not fail again while updating run state.
+        }
+    }
+
+    private static void bestEffortFinalizeFailureRunUpdate(ActionExecutionSession session, String message) {
+        try {
+            session.updateRun(run -> run.toBuilder()
+                    .result(session.result())
+                    .failureReason(message)
+                    .build());
+        } catch (Throwable ignored) {
+            // Failure handling must not fail again while updating run state.
+        }
     }
 
     private static void bestEffortRuntimeFailureAudit(ActionExecutionSession session, String message, Throwable cause) {
