@@ -58,6 +58,33 @@ public final class ActionExecutionSession {
         this.run = ActionRun.requested(proposal, context);
     }
 
+    public static ActionExecutionSession forResume(
+            ActionRun existingRun,
+            ActionProposal proposal,
+            ExecutionContext context,
+            ActionRegistry registry,
+            ActionInputValidator inputValidator,
+            PolicyGate policyGate,
+            ApprovalGate approvalGate,
+            DuplicateActionPolicy duplicateActionPolicy,
+            AuditSink auditSink,
+            TraceSink traceSink,
+            RunStore runStore) {
+        ActionExecutionSession session = new ActionExecutionSession(
+                proposal,
+                context,
+                registry,
+                inputValidator,
+                policyGate,
+                approvalGate,
+                duplicateActionPolicy,
+                auditSink,
+                traceSink,
+                runStore);
+        session.run = Objects.requireNonNull(existingRun, "existingRun must not be null");
+        return session;
+    }
+
     public ActionProposal proposal() {
         return proposal;
     }

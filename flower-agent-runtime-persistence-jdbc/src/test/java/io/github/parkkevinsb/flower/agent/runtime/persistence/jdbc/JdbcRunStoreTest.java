@@ -11,6 +11,7 @@ import io.github.parkkevinsb.flower.agent.runtime.ActionRegistry;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRiskLevel;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRun;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRunStatus;
+import io.github.parkkevinsb.flower.agent.runtime.ApprovalDecision;
 import io.github.parkkevinsb.flower.agent.runtime.DefaultActionRuntime;
 import io.github.parkkevinsb.flower.agent.runtime.DefaultPolicyGate;
 import io.github.parkkevinsb.flower.agent.runtime.ExecutionContext;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -174,6 +176,49 @@ class JdbcRunStoreTest {
     }
 
     @Test
+    void resumesParkedApprovalRunAfterRuntimeRestart() {
+        DataSource dataSource = dataSource();
+        JdbcRunStore firstStore = JdbcRunStore.create(dataSource);
+        CountingExecutor firstExecutor = new CountingExecutor(
+                writeAction("UpdateReport", Set.of(ActionOrigin.AI_PLANNER)),
+                ActionExecutionResult.succeeded(Map.of("updated", true)));
+        DefaultActionRuntime firstRuntime = runtime(new InMemoryActionRegistry(List.of(firstExecutor)), firstStore);
+        ExecutionContext context = context("run-jdbc-resume");
+
+        ActionExecutionResult parked = firstRuntime.handle(
+                new ActionProposal("proposal-jdbc-resume", "UpdateReport", ActionOrigin.AI_PLANNER,
+                        "planner", "update", 0.9d, Map.of("siteId", 1), null, Map.of()),
+                context);
+        ActionRun waiting = firstStore.find(context.runId()).orElseThrow();
+
+        assertThat(parked.status()).isEqualTo(ActionExecutionStatus.PENDING_APPROVAL);
+        assertThat(waiting.status()).isEqualTo(ActionRunStatus.WAITING_APPROVAL);
+        assertThat(firstStore.findResumable("tenant-1")).extracting(ActionRun::runId).contains(context.runId());
+        assertThat(firstExecutor.calls()).isZero();
+
+        JdbcRunStore restartedStore = JdbcRunStore.create(dataSource);
+        CountingExecutor restartedExecutor = new CountingExecutor(
+                writeAction("UpdateReport", Set.of(ActionOrigin.AI_PLANNER)),
+                ActionExecutionResult.succeeded(Map.of("updated", true)));
+        DefaultActionRuntime restartedRuntime = runtime(
+                new InMemoryActionRegistry(List.of(restartedExecutor)),
+                restartedStore);
+
+        ActionExecutionResult resumed = restartedRuntime.resume(
+                context.runId(),
+                ApprovalDecision.approved(waiting.approvalId(), "admin"));
+
+        ActionRun completed = restartedStore.find(context.runId()).orElseThrow();
+        assertThat(resumed.status()).isEqualTo(ActionExecutionStatus.SUCCEEDED);
+        assertThat(completed.status()).isEqualTo(ActionRunStatus.SUCCEEDED);
+        assertThat(completed.result()).isEqualTo(resumed);
+        assertThat(restartedExecutor.calls()).isEqualTo(1);
+        assertThat(restartedStore.findResumable("tenant-1"))
+                .extracting(ActionRun::runId)
+                .doesNotContain(context.runId());
+    }
+
+    @Test
     void jdbcAndInMemoryStoresRecordEquivalentFinalRuns() {
         InMemoryRunStore inMemoryStore = new InMemoryRunStore();
         JdbcRunStore jdbcStore = store();
@@ -309,6 +354,32 @@ class JdbcRunStoreTest {
         @Override
         public ActionExecutionResult execute(io.github.parkkevinsb.flower.agent.runtime.ActionExecutionContext context) {
             return result;
+        }
+    }
+
+    private static final class CountingExecutor implements ActionExecutor {
+        private final ActionDefinition definition;
+        private final ActionExecutionResult result;
+        private final AtomicInteger calls = new AtomicInteger();
+
+        private CountingExecutor(ActionDefinition definition, ActionExecutionResult result) {
+            this.definition = definition;
+            this.result = result;
+        }
+
+        @Override
+        public ActionDefinition definition() {
+            return definition;
+        }
+
+        @Override
+        public ActionExecutionResult execute(io.github.parkkevinsb.flower.agent.runtime.ActionExecutionContext context) {
+            calls.incrementAndGet();
+            return result;
+        }
+
+        int calls() {
+            return calls.get();
         }
     }
 }

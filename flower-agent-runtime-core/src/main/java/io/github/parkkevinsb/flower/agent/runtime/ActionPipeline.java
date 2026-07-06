@@ -66,6 +66,55 @@ public final class ActionPipeline {
         return session.result();
     }
 
+    public static ActionExecutionResult resumeApproved(ActionExecutionSession session) {
+        try {
+            session.record(AuditEventType.APPROVAL_APPROVED, Map.of("approvalId", session.run().approvalId()));
+            for (ActionStage stage : List.<ActionStage>of(
+                    ActionPipeline::resolveAction,
+                    ActionPipeline::validateInput,
+                    ActionPipeline::executeAction)) {
+                if (stage.execute(session) == StageOutcome.SHORT_CIRCUIT) {
+                    break;
+                }
+            }
+        } catch (RuntimeException exception) {
+            return failRuntime(session, exception);
+        }
+
+        try {
+            finalizeStage().stage().execute(session);
+        } catch (RuntimeException exception) {
+            return failFinalize(session, exception);
+        }
+        return session.result();
+    }
+
+    public static ActionExecutionResult reject(ActionExecutionSession session, String reason) {
+        String rejectionReason = reason == null ? "" : reason.trim();
+        try {
+            ActionExecutionResult result = ActionExecutionResult.denied(
+                    "Approval rejected" + (rejectionReason.isBlank() ? "" : ": " + rejectionReason));
+            session.result(result);
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.DENIED)
+                    .result(result)
+                    .failureReason(result.message())
+                    .build());
+            session.record(AuditEventType.APPROVAL_REJECTED, Map.of(
+                    "approvalId", session.run().approvalId(),
+                    "reason", rejectionReason));
+        } catch (RuntimeException exception) {
+            return failRuntime(session, exception);
+        }
+
+        try {
+            finalizeStage().stage().execute(session);
+        } catch (RuntimeException exception) {
+            return failFinalize(session, exception);
+        }
+        return session.result();
+    }
+
     /**
      * Converts a runtime-envelope failure into the same failed result and best-effort audit/duplicate cleanup
      * for every backend.
