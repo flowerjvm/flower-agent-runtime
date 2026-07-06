@@ -115,6 +115,28 @@ public final class ActionPipeline {
         return session.result();
     }
 
+    public static ActionExecutionResult expire(ActionExecutionSession session) {
+        try {
+            ActionExecutionResult result = ActionExecutionResult.denied("Approval expired");
+            session.result(result);
+            session.updateRun(run -> run.toBuilder()
+                    .status(ActionRunStatus.EXPIRED)
+                    .result(result)
+                    .failureReason(result.message())
+                    .build());
+            session.record(AuditEventType.APPROVAL_EXPIRED, Map.of("approvalId", session.run().approvalId()));
+        } catch (RuntimeException exception) {
+            return failRuntime(session, exception);
+        }
+
+        try {
+            finalizeStage().stage().execute(session);
+        } catch (RuntimeException exception) {
+            return failFinalize(session, exception);
+        }
+        return session.result();
+    }
+
     /**
      * Converts a runtime-envelope failure into the same failed result and best-effort audit/duplicate cleanup
      * for every backend.

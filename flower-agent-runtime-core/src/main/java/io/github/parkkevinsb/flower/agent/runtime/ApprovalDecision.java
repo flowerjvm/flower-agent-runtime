@@ -25,4 +25,8 @@ public record ApprovalDecision(
     public static ApprovalDecision rejected(String approvalId, String resolvedBy, String reason) {
         return new ApprovalDecision(ApprovalDecisionType.REJECTED, approvalId, resolvedBy, reason);
     }
+
+    public static ApprovalDecision expired(String approvalId) {
+        return new ApprovalDecision(ApprovalDecisionType.EXPIRED, approvalId, "system", "deadline");
+    }
 }

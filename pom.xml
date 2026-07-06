@@ -17,6 +17,7 @@
         <module>flower-agent-runtime-core</module>
         <module>flower-agent-runtime-workflow</module>
         <module>flower-agent-runtime-persistence-jdbc</module>
+        <module>flower-agent-runtime-eventloop</module>
     </modules>
 
     <properties>
@@ -54,8 +55,18 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
+                <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
+                <artifactId>flower-agent-runtime-eventloop</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>io.github.parkkevinsb.flower</groupId>
                 <artifactId>flower-core</artifactId>
+                <version>${flower.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.parkkevinsb.flower</groupId>
+                <artifactId>flower-eventloop</artifactId>
                 <version>${flower.version}</version>
             </dependency>
             <dependency>

@@ -116,6 +116,9 @@ public final class DefaultActionRuntime implements ResumableActionRuntime {
         if (decision.type() == ApprovalDecisionType.APPROVED) {
             return ActionPipeline.resumeApproved(session);
         }
+        if (decision.type() == ApprovalDecisionType.EXPIRED) {
+            return ActionPipeline.expire(session);
+        }
         return ActionPipeline.reject(session, decision.reason());
     }
 
