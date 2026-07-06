@@ -47,13 +47,33 @@ public final class ActionPipeline {
 
     /** Runs the whole pipeline synchronously in the current thread and returns the resulting outcome. */
     public static ActionExecutionResult run(ActionExecutionSession session) {
-        for (NamedStage gate : gates()) {
-            if (gate.stage().execute(session) == StageOutcome.SHORT_CIRCUIT) {
-                break;
+        try {
+            for (NamedStage gate : gates()) {
+                if (gate.stage().execute(session) == StageOutcome.SHORT_CIRCUIT) {
+                    break;
+                }
             }
+            finalizeStage().stage().execute(session);
+        } catch (RuntimeException exception) {
+            return failRuntime(session, exception);
         }
-        finalizeStage().stage().execute(session);
         return session.result();
+    }
+
+    /**
+     * Converts a runtime-envelope failure into the same failed result and best-effort audit/duplicate cleanup
+     * for every backend.
+     *
+     * <p>This is intentionally not used for normal executor failures. Those are action execution failures and are
+     * handled in {@link #executeAction(ActionExecutionSession)}. This method is for gate/runtime failures such as
+     * validator, policy, duplicate, audit, or Flow step failures.</p>
+     */
+    public static ActionExecutionResult failRuntime(ActionExecutionSession session, Throwable cause) {
+        ActionExecutionResult result = ActionExecutionResult.failed(failureMessage(cause));
+        session.result(result);
+        bestEffortRuntimeFailureAudit(session, result, cause);
+        bestEffortCompleteReservedDuplicate(session, result, cause);
+        return result;
     }
 
     static StageOutcome recordProposal(ActionExecutionSession session) {
@@ -148,8 +168,7 @@ public final class ActionPipeline {
                     ? AuditEventType.ACTION_EXECUTION_COMPLETED
                     : AuditEventType.ACTION_EXECUTION_FAILED, result.output());
         } catch (RuntimeException exception) {
-            ActionExecutionResult result = ActionExecutionResult.failed(
-                    exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage());
+            ActionExecutionResult result = ActionExecutionResult.failed(failureMessage(exception));
             session.result(result);
             session.record(AuditEventType.ACTION_EXECUTION_FAILED, Map.of("message", result.message()));
         }
@@ -157,10 +176,58 @@ public final class ActionPipeline {
     }
 
     static StageOutcome finalizeExecution(ActionExecutionSession session) {
-        if (session.duplicateDecision() == null
-                || session.duplicateDecision().type() == DuplicateActionDecisionType.ACCEPT) {
+        if (session.duplicateDecision() != null
+                && session.duplicateDecision().type() == DuplicateActionDecisionType.ACCEPT) {
             session.duplicateActionPolicy().complete(session.proposal(), session.result());
         }
         return StageOutcome.CONTINUE;
+    }
+
+    private static String failureMessage(Throwable cause) {
+        if (cause == null) {
+            return "Action runtime failed.";
+        }
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            return cause.getClass().getSimpleName();
+        }
+        return message;
+    }
+
+    private static void bestEffortRuntimeFailureAudit(
+            ActionExecutionSession session,
+            ActionExecutionResult result,
+            Throwable cause) {
+        try {
+            session.record(AuditEventType.ACTION_RUNTIME_FAILED, Map.of("message", result.message()));
+        } catch (Throwable auditFailure) {
+            suppress(cause, auditFailure);
+        }
+    }
+
+    private static void bestEffortCompleteReservedDuplicate(
+            ActionExecutionSession session,
+            ActionExecutionResult result,
+            Throwable cause) {
+        if (session.duplicateDecision() == null
+                || session.duplicateDecision().type() != DuplicateActionDecisionType.ACCEPT) {
+            return;
+        }
+        try {
+            session.duplicateActionPolicy().complete(session.proposal(), result);
+        } catch (Throwable duplicateFailure) {
+            suppress(cause, duplicateFailure);
+        }
+    }
+
+    private static void suppress(Throwable cause, Throwable secondary) {
+        if (cause == null || secondary == null || cause == secondary) {
+            return;
+        }
+        try {
+            cause.addSuppressed(secondary);
+        } catch (Throwable ignored) {
+            // Best-effort failure handling must not fail while recording suppressed failures.
+        }
     }
 }

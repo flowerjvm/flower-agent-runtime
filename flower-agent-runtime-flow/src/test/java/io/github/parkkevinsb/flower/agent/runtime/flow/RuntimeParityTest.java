@@ -14,6 +14,7 @@ import io.github.parkkevinsb.flower.agent.runtime.ActionRuntime;
 import io.github.parkkevinsb.flower.agent.runtime.AuditEvent;
 import io.github.parkkevinsb.flower.agent.runtime.AuditSink;
 import io.github.parkkevinsb.flower.agent.runtime.DefaultActionRuntime;
+import io.github.parkkevinsb.flower.agent.runtime.DuplicateActionDecision;
 import io.github.parkkevinsb.flower.agent.runtime.DuplicateActionPolicy;
 import io.github.parkkevinsb.flower.agent.runtime.ExecutionContext;
 import io.github.parkkevinsb.flower.agent.runtime.InMemoryActionRegistry;
@@ -120,6 +121,84 @@ class RuntimeParityTest {
                 runtime -> runtime.handle(
                         ActionProposal.user("CreateReport", Map.of(), "user-1"),
                         ExecutionContext.of("tenant-1", "user-1")));
+    }
+
+    @Test
+    void validatorExceptionParityAndDuplicateCleanup() {
+        ActionInputValidator throwingValidator = (proposal, definition, context) -> {
+            throw new RuntimeException("validator boom");
+        };
+        ExecutionContext context = ExecutionContext.of("tenant-1", "user-1");
+        ActionProposal first = new ActionProposal("proposal-1", "CreateReport", ActionOrigin.USER,
+                "user-1", "", 1.0d, Map.of(), "same-key", Map.of());
+        ActionProposal second = new ActionProposal("proposal-2", "CreateReport", ActionOrigin.USER,
+                "user-1", "", 1.0d, Map.of(), "same-key", Map.of());
+        assertParity(
+                () -> registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                        ActionExecutionResult.succeeded(Map.of())),
+                InMemoryDuplicateActionPolicy::new,
+                PolicyGate.allowAll(),
+                throwingValidator,
+                runtime -> {
+                    ActionExecutionResult firstResult = runtime.handle(first, context);
+                    ActionExecutionResult secondResult = runtime.handle(second, context);
+                    assertThat(firstResult.status()).isEqualTo(secondResult.status());
+                    assertThat(firstResult.message()).isEqualTo(secondResult.message());
+                    return secondResult;
+                });
+    }
+
+    @Test
+    void policyExceptionParity() {
+        PolicyGate throwingPolicy = (proposal, definition, context) -> {
+            throw new RuntimeException("policy boom");
+        };
+        assertParity(
+                () -> registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                        ActionExecutionResult.succeeded(Map.of())),
+                null,
+                throwingPolicy,
+                null,
+                runtime -> runtime.handle(
+                        ActionProposal.user("CreateReport", Map.of(), "user-1"),
+                        ExecutionContext.of("tenant-1", "user-1")));
+    }
+
+    @Test
+    void duplicatePolicyExceptionParity() {
+        assertParity(
+                () -> registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                        ActionExecutionResult.succeeded(Map.of())),
+                ThrowingDuplicateActionPolicy::new,
+                PolicyGate.allowAll(),
+                null,
+                runtime -> runtime.handle(
+                        ActionProposal.user("CreateReport", Map.of(), "user-1"),
+                        ExecutionContext.of("tenant-1", "user-1")));
+    }
+
+    @Test
+    void auditExceptionParity() {
+        ActionProposal proposal = ActionProposal.user("CreateReport", Map.of("siteId", 1), "user-1");
+        ExecutionContext context = ExecutionContext.of("tenant-1", "user-1");
+
+        ThrowingAuditSink directAudit = new ThrowingAuditSink();
+        ActionRuntime direct = new DefaultActionRuntime(
+                registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                        ActionExecutionResult.succeeded(Map.of("reportId", 10))),
+                null, null, null, null, directAudit, null);
+        ActionExecutionResult directResult = direct.handle(proposal, context);
+
+        ThrowingAuditSink flowAudit = new ThrowingAuditSink();
+        ActionRuntime flow = new FlowActionRuntime(
+                registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                        ActionExecutionResult.succeeded(Map.of("reportId", 10))),
+                null, null, null, null, flowAudit, null, null, null, 64);
+        ActionExecutionResult flowResult = flow.handle(proposal, context);
+
+        assertThat(flowResult.status()).isEqualTo(directResult.status());
+        assertThat(flowResult.message()).isEqualTo(directResult.message());
+        assertThat(flowAudit.calls()).isEqualTo(directAudit.calls());
     }
 
     @Test
@@ -230,6 +309,18 @@ class RuntimeParityTest {
         }
     }
 
+    private static final class ThrowingDuplicateActionPolicy implements DuplicateActionPolicy {
+        @Override
+        public DuplicateActionDecision reserve(ActionProposal proposal, ExecutionContext context) {
+            throw new RuntimeException("duplicate boom");
+        }
+
+        @Override
+        public void complete(ActionProposal proposal, ActionExecutionResult result) {
+            throw new RuntimeException("duplicate complete boom");
+        }
+    }
+
     private static final class RecordingAuditSink implements AuditSink {
         private final List<AuditEvent> events = new ArrayList<>();
 
@@ -240,6 +331,20 @@ class RuntimeParityTest {
 
         List<AuditEvent> events() {
             return events;
+        }
+    }
+
+    private static final class ThrowingAuditSink implements AuditSink {
+        private int calls;
+
+        @Override
+        public void record(AuditEvent event) {
+            calls++;
+            throw new RuntimeException("audit boom");
+        }
+
+        int calls() {
+            return calls;
         }
     }
 }

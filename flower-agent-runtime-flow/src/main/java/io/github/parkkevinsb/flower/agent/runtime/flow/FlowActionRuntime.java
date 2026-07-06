@@ -89,16 +89,14 @@ public final class FlowActionRuntime implements ActionRuntime {
         }
         if (flow.state() == FlowState.FAILED) {
             Throwable cause = flow.failureCause();
-            if (!session.hasResult()) {
-                session.result(ActionExecutionResult.failed(
-                        cause == null ? "Flow action runtime failed." : cause.getMessage()));
+            if (cause instanceof Error error) {
+                throw error;
             }
+            ActionPipeline.failRuntime(session, cause);
         } else if (!flow.state().isTerminal()) {
             flow.cancel();
-            if (!session.hasResult()) {
-                session.result(ActionExecutionResult.failed(
-                        "Flow action runtime did not terminate within sync tick budget."));
-            }
+            ActionPipeline.failRuntime(session, new IllegalStateException(
+                    "Flow action runtime did not terminate within sync tick budget."));
         }
         return session.result();
     }
