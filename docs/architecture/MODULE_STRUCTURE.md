@@ -9,7 +9,7 @@ The long-term project may be structured like `flower` and `flower-ai-harness`:
 flower-agent-runtime
   pom.xml
   flower-agent-runtime-core
-  flower-agent-runtime-flow
+  flower-agent-runtime-workflow
   flower-agent-runtime-control
   flower-agent-runtime-ai-execution
   flower-agent-runtime-ai-harness
@@ -29,11 +29,11 @@ The first extraction is much smaller:
 
 ```text
 flower-agent-runtime-core
-flower-agent-runtime-flow
+flower-agent-runtime-workflow
 flower-agent-runtime-test
 ```
 
-`flower-agent-runtime-core` and `flower-agent-runtime-flow` have been
+`flower-agent-runtime-core` and `flower-agent-runtime-workflow` have been
 scaffolded first. Everything else should stay in host applications or
 documentation until real usage proves the boundary.
 
@@ -265,12 +265,12 @@ optional:
 Avoid putting business action policy, domain sensors, approval rules, or
 long-term I/D governance inside `flower-ai-harness`.
 
-### flower-agent-runtime-flow
+### flower-agent-runtime-workflow
 
 Purpose:
 
 ```text
-Default Flower Flow backend for controlled action execution.
+Default workflow backend for controlled action execution.
 ```
 
 Responsibilities:
@@ -509,7 +509,7 @@ Phase 0:
 
 Phase 1:
   flower-agent-runtime-core
-  flower-agent-runtime-flow
+  flower-agent-runtime-workflow
   flower-agent-runtime-test
 
 Phase 2:

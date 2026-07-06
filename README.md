@@ -1236,7 +1236,7 @@ Status:
 Concept defined.
 Maven parent project scaffolded.
 flower-agent-runtime-core created.
-flower-agent-runtime-flow created as the first Flower Flow backend.
+flower-agent-runtime-workflow created as the first workflow backend.
 Old names flower-agent-orchestration and flower-action-runtime replaced by
 flower-agent-runtime.
 Generic implementation deferred.
@@ -1271,9 +1271,9 @@ DefaultActionRuntime
 
 The core module intentionally has no dependency on Flower core, Spring, MCP,
 JSON, model providers, or AI frameworks. Flower execution belongs in
-`flower-agent-runtime-flow`.
+`flower-agent-runtime-workflow`.
 
-Current `flower-agent-runtime-flow` scope:
+Current `flower-agent-runtime-workflow` scope:
 
 ```text
 ActionProposal -> Flower Flow

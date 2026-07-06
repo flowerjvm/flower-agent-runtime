@@ -1,4 +1,4 @@
-package io.github.parkkevinsb.flower.agent.runtime.flow;
+package io.github.parkkevinsb.flower.agent.runtime.workflow;
 
 import io.github.parkkevinsb.flower.agent.runtime.ActionDefinition;
 import io.github.parkkevinsb.flower.agent.runtime.ActionEffect;
@@ -23,12 +23,12 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class FlowActionRuntimeTest {
+class WorkflowActionRuntimeTest {
     @Test
     void executesRegisteredActionThroughFlowerFlow() {
         RecordingAuditSink audit = new RecordingAuditSink();
         ActionDefinition definition = definition("CreateReport", ActionEffect.WRITE, Set.of(ActionOrigin.USER));
-        FlowActionRuntime runtime = new FlowActionRuntime(
+        WorkflowActionRuntime runtime = new WorkflowActionRuntime(
                 new InMemoryActionRegistry(List.of(new StubExecutor(
                         definition,
                         ActionExecutionResult.succeeded(Map.of("reportId", 10))))),
@@ -59,7 +59,7 @@ class FlowActionRuntimeTest {
     @Test
     void aiPlannerWriteActionStopsAtApprovalBoundary() {
         ActionDefinition definition = definition("UpdateReport", ActionEffect.WRITE, Set.of(ActionOrigin.AI_PLANNER));
-        FlowActionRuntime runtime = new FlowActionRuntime(new InMemoryActionRegistry(List.of(new StubExecutor(
+        WorkflowActionRuntime runtime = new WorkflowActionRuntime(new InMemoryActionRegistry(List.of(new StubExecutor(
                 definition,
                 ActionExecutionResult.succeeded(Map.of())))));
 

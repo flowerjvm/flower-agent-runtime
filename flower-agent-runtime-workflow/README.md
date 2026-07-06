@@ -1,6 +1,6 @@
-# flower-agent-runtime-flow
+# flower-agent-runtime-workflow
 
-Flower Flow backend for `flower-agent-runtime-core`.
+Workflow backend for `flower-agent-runtime-core`, implemented with Flower Flow.
 
 This module turns a controlled `ActionProposal` into a small Flower `Flow`:
 
@@ -14,7 +14,7 @@ record-proposal
 -> record-result
 ```
 
-It is the default durable-backend direction for actions that need explicit
+It is the default workflow-backend direction for actions that need explicit
 execution state, step inspection, waiting, cancellation, timeout, or recovery.
 
 ## Current Recovery Boundary

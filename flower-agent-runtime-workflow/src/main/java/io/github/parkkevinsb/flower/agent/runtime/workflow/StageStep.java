@@ -1,4 +1,4 @@
-package io.github.parkkevinsb.flower.agent.runtime.flow;
+package io.github.parkkevinsb.flower.agent.runtime.workflow;
 
 import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionSession;
 import io.github.parkkevinsb.flower.agent.runtime.ActionStage;

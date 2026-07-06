@@ -1,4 +1,4 @@
-package io.github.parkkevinsb.flower.agent.runtime.flow;
+package io.github.parkkevinsb.flower.agent.runtime.workflow;
 
 import io.github.parkkevinsb.flower.agent.runtime.ActionDefinition;
 import io.github.parkkevinsb.flower.agent.runtime.ActionEffect;
@@ -201,7 +201,7 @@ class RuntimeParityTest {
         ActionExecutionResult directResult = direct.handle(proposal, context);
 
         ThrowingAuditSink flowAudit = new ThrowingAuditSink();
-        ActionRuntime flow = new FlowActionRuntime(
+        ActionRuntime flow = new WorkflowActionRuntime(
                 registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
                         ActionExecutionResult.succeeded(Map.of("reportId", 10))),
                 null, null, null, null, flowAudit, null, null, null, 64);
@@ -223,7 +223,7 @@ class RuntimeParityTest {
 
         TrackingDuplicateActionPolicy flowDuplicate = new TrackingDuplicateActionPolicy();
         CompletionAuditThrowsSink flowAudit = new CompletionAuditThrowsSink();
-        ActionRuntime flow = new FlowActionRuntime(
+        ActionRuntime flow = new WorkflowActionRuntime(
                 registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
                         ActionExecutionResult.succeeded(Map.of("reportId", 10))),
                 null, PolicyGate.allowAll(), null, flowDuplicate, flowAudit, null, null, null, 64);
@@ -255,7 +255,7 @@ class RuntimeParityTest {
 
         CompleteThrowsDuplicateActionPolicy flowDuplicate = new CompleteThrowsDuplicateActionPolicy();
         RecordingAuditSink flowAudit = new RecordingAuditSink();
-        ActionRuntime flow = new FlowActionRuntime(
+        ActionRuntime flow = new WorkflowActionRuntime(
                 registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
                         ActionExecutionResult.succeeded(Map.of("reportId", 10))),
                 null, PolicyGate.allowAll(), null, flowDuplicate, flowAudit, null, null, null, 64);
@@ -286,7 +286,7 @@ class RuntimeParityTest {
                 null, null, null, directDuplicate, null, null);
 
         TrackingDuplicateActionPolicy flowDuplicate = new TrackingDuplicateActionPolicy();
-        ActionRuntime flow = new FlowActionRuntime(
+        ActionRuntime flow = new WorkflowActionRuntime(
                 registryOf(writeAction("UpdateReport", Set.of(ActionOrigin.AI_PLANNER)),
                         ActionExecutionResult.succeeded(Map.of())),
                 null, null, null, flowDuplicate, null, null, null, null, 64);
@@ -352,7 +352,7 @@ class RuntimeParityTest {
         ActionExecutionResult directResult = body.apply(direct);
 
         RecordingAuditSink flowAudit = new RecordingAuditSink();
-        ActionRuntime flow = new FlowActionRuntime(
+        ActionRuntime flow = new WorkflowActionRuntime(
                 registry.get(), validator, policyGate, null, supply(duplicatePolicy), flowAudit, null, null, null, 64);
         ActionExecutionResult flowResult = body.apply(flow);
 
@@ -372,7 +372,7 @@ class RuntimeParityTest {
                 ActionExecutionResult.succeeded(Map.of("reportId", 99)));
         DuplicateActionPolicy duplicatePolicy = new InMemoryDuplicateActionPolicy();
         ActionRuntime runtime = flowRuntime
-                ? new FlowActionRuntime(registry, validator, PolicyGate.allowAll(), null,
+                ? new WorkflowActionRuntime(registry, validator, PolicyGate.allowAll(), null,
                         duplicatePolicy, null, null, null, null, 64)
                 : new DefaultActionRuntime(registry, validator, PolicyGate.allowAll(), null,
                         duplicatePolicy, null, null);

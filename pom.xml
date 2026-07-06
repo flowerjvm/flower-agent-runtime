@@ -15,7 +15,7 @@
 
     <modules>
         <module>flower-agent-runtime-core</module>
-        <module>flower-agent-runtime-flow</module>
+        <module>flower-agent-runtime-workflow</module>
     </modules>
 
     <properties>
@@ -42,7 +42,7 @@
             </dependency>
             <dependency>
                 <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-                <artifactId>flower-agent-runtime-flow</artifactId>
+                <artifactId>flower-agent-runtime-workflow</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

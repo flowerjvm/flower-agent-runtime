@@ -284,7 +284,7 @@ flower-agent-runtime-spring-boot-starter
 Flower execution should also stay behind a runtime backend boundary.
 
 ```text
-flower-agent-runtime-flow
+flower-agent-runtime-workflow
   = default backend for durable, high-risk, or long-running controlled actions
   = maps ActionProposal to Flower Flow only when Flower execution is appropriate
 ```
@@ -356,7 +356,7 @@ PolicyGate / ApprovalGate / Interlock
 
 Controlled execution backend
   = direct executor for simple safe actions.
-  = flower-agent-runtime-flow for durable, high-risk, or long-running actions.
+  = flower-agent-runtime-workflow for durable, high-risk, or long-running actions.
 ```
 
 ## Extraction Rule
@@ -388,7 +388,7 @@ Recommended sequence:
 ```text
 1. Build explicit core contracts.
 2. Build the controlled execution backend contract.
-3. Build flower-agent-runtime-flow for durable/high-risk action execution.
+3. Build flower-agent-runtime-workflow for durable/high-risk action execution.
 4. Validate with real host actions.
 5. Add testkit/check support.
 6. Add Spring annotation convenience.

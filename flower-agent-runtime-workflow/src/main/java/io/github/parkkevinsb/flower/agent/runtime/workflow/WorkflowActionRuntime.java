@@ -1,4 +1,4 @@
-package io.github.parkkevinsb.flower.agent.runtime.flow;
+package io.github.parkkevinsb.flower.agent.runtime.workflow;
 
 import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionResult;
 import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionSession;
@@ -24,14 +24,14 @@ import io.github.parkkevinsb.flower.core.time.SystemClock;
 import java.util.Objects;
 
 /**
- * Flower Flow backend for the controlled action runtime.
+ * Workflow backend for the controlled action runtime.
  *
  * <p>It runs the same {@link ActionPipeline} stages as
  * {@link io.github.parkkevinsb.flower.agent.runtime.DefaultActionRuntime}, but each stage becomes a Flow Step so
  * the execution can be inspected, waited on, and (in future) suspended or recovered. Governance behavior stays
  * identical because both backends share the one stage definition.</p>
  */
-public final class FlowActionRuntime implements ActionRuntime {
+public final class WorkflowActionRuntime implements ActionRuntime {
     public static final String FLOW_TYPE = "flower-agent-runtime-action";
     private static final int DEFAULT_MAX_SYNC_TICKS = 64;
 
@@ -46,7 +46,7 @@ public final class FlowActionRuntime implements ActionRuntime {
     private final EventBus eventBus;
     private final int maxSyncTicks;
 
-    public FlowActionRuntime(
+    public WorkflowActionRuntime(
             ActionRegistry registry,
             ActionInputValidator inputValidator,
             PolicyGate policyGate,
@@ -71,7 +71,7 @@ public final class FlowActionRuntime implements ActionRuntime {
         this.maxSyncTicks = maxSyncTicks <= 0 ? DEFAULT_MAX_SYNC_TICKS : maxSyncTicks;
     }
 
-    public FlowActionRuntime(ActionRegistry registry) {
+    public WorkflowActionRuntime(ActionRegistry registry) {
         this(registry, null, null, null, null, null, null, null, null, DEFAULT_MAX_SYNC_TICKS);
     }
 

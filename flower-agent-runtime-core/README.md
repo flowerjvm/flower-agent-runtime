@@ -17,7 +17,7 @@ ActionProposal
 -> AuditSink / TraceSink
 ```
 
-Flower Flow execution belongs in `flower-agent-runtime-flow`.
+Flower Flow execution belongs in `flower-agent-runtime-workflow`.
 
 Feedback/control behavior belongs in a later optional module such as
 `flower-agent-runtime-control` after host applications prove repeated patterns.

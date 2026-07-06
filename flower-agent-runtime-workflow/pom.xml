@@ -11,9 +11,9 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>flower-agent-runtime-flow</artifactId>
-    <name>flower-agent-runtime Flow Backend</name>
-    <description>Flower Flow backend for controlled action runtime execution.</description>
+    <artifactId>flower-agent-runtime-workflow</artifactId>
+    <name>flower-agent-runtime Workflow Backend</name>
+    <description>Workflow backend for controlled action runtime execution, implemented with Flower Flow.</description>
 
     <dependencies>
         <dependency>
