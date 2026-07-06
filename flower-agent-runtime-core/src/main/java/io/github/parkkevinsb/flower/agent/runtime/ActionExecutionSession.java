@@ -1,26 +1,16 @@
-package io.github.parkkevinsb.flower.agent.runtime.flow;
-
-import io.github.parkkevinsb.flower.agent.runtime.ActionDefinition;
-import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionResult;
-import io.github.parkkevinsb.flower.agent.runtime.ActionExecutor;
-import io.github.parkkevinsb.flower.agent.runtime.ActionInputValidator;
-import io.github.parkkevinsb.flower.agent.runtime.ActionProposal;
-import io.github.parkkevinsb.flower.agent.runtime.ActionRegistry;
-import io.github.parkkevinsb.flower.agent.runtime.ApprovalGate;
-import io.github.parkkevinsb.flower.agent.runtime.AuditEvent;
-import io.github.parkkevinsb.flower.agent.runtime.AuditEventType;
-import io.github.parkkevinsb.flower.agent.runtime.AuditSink;
-import io.github.parkkevinsb.flower.agent.runtime.DuplicateActionDecision;
-import io.github.parkkevinsb.flower.agent.runtime.DuplicateActionPolicy;
-import io.github.parkkevinsb.flower.agent.runtime.ExecutionContext;
-import io.github.parkkevinsb.flower.agent.runtime.PolicyDecision;
-import io.github.parkkevinsb.flower.agent.runtime.PolicyGate;
-import io.github.parkkevinsb.flower.agent.runtime.TraceSink;
-import io.github.parkkevinsb.flower.agent.runtime.ValidationResult;
+package io.github.parkkevinsb.flower.agent.runtime;
 
 import java.util.Map;
+import java.util.Objects;
 
-public final class FlowActionExecutionSession {
+/**
+ * Mutable state shared across the stages of one controlled action execution.
+ *
+ * <p>It carries the immutable request ({@link ActionProposal}, {@link ExecutionContext}), the runtime
+ * collaborators, and the intermediate results each stage produces. Both the direct runtime and the Flower Flow
+ * backend build one session per {@code handle} call and thread it through {@link ActionPipeline} stages.</p>
+ */
+public final class ActionExecutionSession {
     private final ActionProposal proposal;
     private final ExecutionContext context;
     private final ActionRegistry registry;
@@ -38,7 +28,7 @@ public final class FlowActionExecutionSession {
     private PolicyDecision policyDecision;
     private ActionExecutionResult result;
 
-    FlowActionExecutionSession(
+    public ActionExecutionSession(
             ActionProposal proposal,
             ExecutionContext context,
             ActionRegistry registry,
@@ -48,15 +38,16 @@ public final class FlowActionExecutionSession {
             DuplicateActionPolicy duplicateActionPolicy,
             AuditSink auditSink,
             TraceSink traceSink) {
-        this.proposal = proposal;
-        this.context = context;
-        this.registry = registry;
-        this.inputValidator = inputValidator;
-        this.policyGate = policyGate;
-        this.approvalGate = approvalGate;
-        this.duplicateActionPolicy = duplicateActionPolicy;
-        this.auditSink = auditSink;
-        this.traceSink = traceSink;
+        this.proposal = Objects.requireNonNull(proposal, "proposal must not be null");
+        this.context = Objects.requireNonNull(context, "context must not be null");
+        this.registry = Objects.requireNonNull(registry, "registry must not be null");
+        this.inputValidator = Objects.requireNonNull(inputValidator, "inputValidator must not be null");
+        this.policyGate = Objects.requireNonNull(policyGate, "policyGate must not be null");
+        this.approvalGate = Objects.requireNonNull(approvalGate, "approvalGate must not be null");
+        this.duplicateActionPolicy =
+                Objects.requireNonNull(duplicateActionPolicy, "duplicateActionPolicy must not be null");
+        this.auditSink = Objects.requireNonNull(auditSink, "auditSink must not be null");
+        this.traceSink = Objects.requireNonNull(traceSink, "traceSink must not be null");
     }
 
     public ActionProposal proposal() {
@@ -128,14 +119,14 @@ public final class FlowActionExecutionSession {
     }
 
     public ActionExecutionResult result() {
-        return result == null ? ActionExecutionResult.failed("Flow action runtime produced no result.") : result;
+        return result == null ? ActionExecutionResult.failed("Action runtime produced no result.") : result;
     }
 
-    void result(ActionExecutionResult result) {
+    public void result(ActionExecutionResult result) {
         this.result = result;
     }
 
-    boolean hasResult() {
+    public boolean hasResult() {
         return result != null;
     }
 

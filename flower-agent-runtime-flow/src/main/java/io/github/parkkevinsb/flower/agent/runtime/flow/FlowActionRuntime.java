@@ -1,7 +1,9 @@
 package io.github.parkkevinsb.flower.agent.runtime.flow;
 
 import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionResult;
+import io.github.parkkevinsb.flower.agent.runtime.ActionExecutionSession;
 import io.github.parkkevinsb.flower.agent.runtime.ActionInputValidator;
+import io.github.parkkevinsb.flower.agent.runtime.ActionPipeline;
 import io.github.parkkevinsb.flower.agent.runtime.ActionProposal;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRegistry;
 import io.github.parkkevinsb.flower.agent.runtime.ActionRuntime;
@@ -21,6 +23,14 @@ import io.github.parkkevinsb.flower.core.time.SystemClock;
 
 import java.util.Objects;
 
+/**
+ * Flower Flow backend for the controlled action runtime.
+ *
+ * <p>It runs the same {@link ActionPipeline} stages as
+ * {@link io.github.parkkevinsb.flower.agent.runtime.DefaultActionRuntime}, but each stage becomes a Flow Step so
+ * the execution can be inspected, waited on, and (in future) suspended or recovered. Governance behavior stays
+ * identical because both backends share the one stage definition.</p>
+ */
 public final class FlowActionRuntime implements ActionRuntime {
     public static final String FLOW_TYPE = "flower-agent-runtime-action";
     private static final int DEFAULT_MAX_SYNC_TICKS = 64;
@@ -70,16 +80,7 @@ public final class FlowActionRuntime implements ActionRuntime {
         Objects.requireNonNull(proposal, "proposal must not be null");
         Objects.requireNonNull(context, "context must not be null");
 
-        FlowActionExecutionSession session = new FlowActionExecutionSession(
-                proposal,
-                context,
-                registry,
-                inputValidator,
-                policyGate,
-                approvalGate,
-                duplicateActionPolicy,
-                auditSink,
-                traceSink);
+        ActionExecutionSession session = newSession(proposal, context);
         Flow flow = createFlow(session);
         flow.attach(clock, eventBus);
         int ticks = 0;
@@ -102,18 +103,30 @@ public final class FlowActionRuntime implements ActionRuntime {
         return session.result();
     }
 
-    Flow createFlow(FlowActionExecutionSession session) {
+    public ActionExecutionSession newSession(ActionProposal proposal, ExecutionContext context) {
+        return new ActionExecutionSession(
+                proposal,
+                context,
+                registry,
+                inputValidator,
+                policyGate,
+                approvalGate,
+                duplicateActionPolicy,
+                auditSink,
+                traceSink);
+    }
+
+    public Flow createFlow(ActionExecutionSession session) {
         Objects.requireNonNull(session, "session must not be null");
-        return Flow.builder(FLOW_TYPE, session.proposal().proposalId() + ":" + session.proposal().actionId())
-                .step("record-proposal", new RecordProposalStep(session))
-                .step("reserve-duplicate", new ReserveDuplicateStep(session))
-                .step("resolve-action", new ResolveActionStep(session))
-                .step("validate-input", new ValidateInputStep(session))
-                .step("evaluate-policy", new EvaluatePolicyStep(session))
-                .step("execute-action", new ExecuteActionStep(session))
-                .step("record-result", new RecordResultStep(session))
-                .executionContext(toFlowerExecutionContext(session.context()))
-                .build();
+        ActionPipeline.NamedStage finalizeStage = ActionPipeline.finalizeStage();
+        var builder = Flow.builder(
+                FLOW_TYPE,
+                session.proposal().proposalId() + ":" + session.proposal().actionId());
+        for (ActionPipeline.NamedStage gate : ActionPipeline.gates()) {
+            builder = builder.step(gate.name(), new StageStep(session, gate.stage(), finalizeStage.name()));
+        }
+        builder = builder.step(finalizeStage.name(), new FinalizeStep(session, finalizeStage.stage()));
+        return builder.executionContext(toFlowerExecutionContext(session.context())).build();
     }
 
     private static io.github.parkkevinsb.flower.core.context.ExecutionContext toFlowerExecutionContext(
