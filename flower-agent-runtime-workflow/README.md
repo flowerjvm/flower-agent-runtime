@@ -14,8 +14,18 @@ record-proposal
 -> record-result
 ```
 
-It is the default workflow-backend direction for actions that need explicit
-execution state, step inspection, waiting, cancellation, timeout, or recovery.
+The purpose of this backend is **observability**: it makes each control stage
+visible as a Flower `Step` so `Engine.dump()`, the console, and lifecycle
+listeners can show which stage an action is at.
+
+It is not a durable-wait backend. The gate stages contain no `stay()`/waiting, so
+this backend drives the shared `ActionPipeline` as a synchronous sequencer and is
+behaviorally identical to `DefaultActionRuntime` (enforced by parity tests). It
+does not suspend, wait for approval across time, or recover across restart.
+
+Do not build human-approval, long external waits, or resume-after-restart on this
+backend - those belong to the future `flower-agent-runtime-eventloop` durable-wait
+backend. See `docs/architecture/EXECUTION_BACKEND_STRATEGY.md` (Backend Layering).
 
 ## Current Recovery Boundary
 

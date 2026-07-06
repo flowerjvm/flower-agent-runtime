@@ -17,7 +17,18 @@ ActionProposal
 -> AuditSink / TraceSink
 ```
 
-Flower Flow execution belongs in `flower-agent-runtime-workflow`.
+These stages live in an engine-neutral `ActionPipeline` over a shared
+`ActionExecutionSession`. `DefaultActionRuntime` (direct, synchronous) runs them
+in-thread and is the **reference implementation** of the envelope semantics
+(policy, approval, audit, idempotency, failure handling). Any execution backend
+must run the same stages and stay in behavioral parity with the direct runtime;
+an engine is only a driver and must not carry governance logic.
+
+Flower Flow execution belongs in `flower-agent-runtime-workflow`, which drives
+these same stages to make them observable. For how the backends relate - and why
+durable waiting/approval-resume is a future event-loop backend's job rather than
+the Flow backend's - see `docs/architecture/EXECUTION_BACKEND_STRATEGY.md`
+(Backend Layering).
 
 Feedback/control behavior belongs in a later optional module such as
 `flower-agent-runtime-control` after host applications prove repeated patterns.

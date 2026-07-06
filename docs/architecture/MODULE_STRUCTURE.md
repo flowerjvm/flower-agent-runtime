@@ -10,6 +10,7 @@ flower-agent-runtime
   pom.xml
   flower-agent-runtime-core
   flower-agent-runtime-workflow
+  flower-agent-runtime-eventloop
   flower-agent-runtime-control
   flower-agent-runtime-ai-execution
   flower-agent-runtime-ai-harness
@@ -124,6 +125,68 @@ proposal
 
 It should not depend on Spring, MCP, LangGraph4j, or host application domain
 code.
+
+The gate stages live in an engine-neutral `ActionPipeline` over a shared
+`ActionExecutionSession`. `DefaultActionRuntime` (direct, synchronous) runs them
+in-thread and is the reference implementation of the envelope semantics. Every
+backend must run the same stages and stay in behavioral parity with the direct
+runtime.
+
+### flower-agent-runtime-workflow
+
+Purpose:
+
+```text
+Observability backend: make the control stages visible as Flower Flow/Step.
+```
+
+Status:
+
+```text
+Scaffolded (part of the first extraction).
+```
+
+Responsibilities:
+
+```text
+drive the core ActionPipeline stages as a Flower Flow
+render record-proposal .. record-result as inspectable Steps
+expose control-stage position through Engine.dump()/console/listeners
+stay in behavioral parity with DefaultActionRuntime
+```
+
+This backend is synchronous. It does not suspend, wait for approval across time,
+or recover across restart. Its value is inspection, not durability. Approval and
+long external waits must not be built on it - see
+[Execution Backend Strategy](EXECUTION_BACKEND_STRATEGY.md) (Backend Layering).
+
+### flower-agent-runtime-eventloop
+
+Purpose:
+
+```text
+Durable-wait backend on flower-eventloop for waiting-heavy actions.
+```
+
+Status:
+
+```text
+Future. Do not build before the first real wait feature (approval-wait) and
+host-application validation. flower-eventloop is an MVP/experimental engine.
+```
+
+Responsibilities:
+
+```text
+run the same core ActionPipeline stages on an event-driven runtime
+model approval as a durable await(signal(...)) with deadline
+run async AI/tool execution off the event-loop thread and await completion
+support timeout, cancellation, and resume-after-restart via durable checkpoints
+```
+
+Adopting this backend requires evolving the `ActionRuntime` contract to a
+suspend/resume-aware shape; the synchronous `handle(...) -> ActionExecutionResult`
+cannot express a parked, resumable run.
 
 ### flower-agent-runtime-control
 
@@ -264,33 +327,6 @@ optional:
 
 Avoid putting business action policy, domain sensors, approval rules, or
 long-term I/D governance inside `flower-ai-harness`.
-
-### flower-agent-runtime-workflow
-
-Purpose:
-
-```text
-Default workflow backend for controlled action execution.
-```
-
-Responsibilities:
-
-```text
-ActionProposal -> Flow
-record proposal step
-duplicate reservation step
-action resolution step
-input validation step
-policy evaluation step
-action execution step
-result recording step
-Flower ExecutionContext mapping
-```
-
-This module depends on `flower-agent-runtime-core` and `flower-core`.
-
-It should not define the public action model. It only executes the core
-contracts through Flower Flow when Flower execution is appropriate.
 
 ### flower-agent-runtime-spring-ai-agent
 
@@ -525,6 +561,10 @@ Phase 4:
 Phase 5:
   optional MCP, observability, Spring AI agent, or LangGraph4j adapters only
   after real integration pressure appears.
+
+  flower-agent-runtime-eventloop only together with the first real wait feature
+  (approval-wait) and a suspend/resume-aware ActionRuntime contract, validated
+  in a host application first.
 ```
 
 The first useful extraction should likely be:
@@ -587,9 +627,13 @@ spring-boot-starter
   -> spring
   -> core
 
-flow
+workflow
   -> core
   -> flower-core
+
+eventloop
+  -> core
+  -> flower-eventloop
 
 ai-harness adapter
   -> ai-execution

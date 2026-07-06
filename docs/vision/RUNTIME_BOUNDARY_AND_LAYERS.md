@@ -284,6 +284,12 @@ flower-ai-harness
 flower-agent-runtime
   = business action execution envelope:
     ActionDefinition, PolicyGate, Approval, Audit, Idempotency, ResultGuard
+    - core: engine-neutral ActionPipeline + contracts; DefaultActionRuntime is
+      the synchronous reference backend
+    - workflow backend (flower-core Flow/Step): observable control stages;
+      synchronous, no durable waiting
+    - eventloop backend (future, flower-eventloop): durable waiting for
+      approval events, LLM/MCP/tool callbacks, timeouts, and resume
 
 flower-agent-runtime-control
   = optional feedback/control layer:

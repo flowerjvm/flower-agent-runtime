@@ -6,8 +6,10 @@ This folder captures the direction for a possible future Flower ecosystem
 project. The public name should be `flower-agent-runtime` because that is the
 language users and teams will understand. Internally, the design remains
 action-first: planners or users propose actions, policies decide, and approved
-execution runs through a controlled backend. Flower is the default backend for
-durable, high-risk, or long-running action execution.
+execution runs through an engine-neutral `ActionPipeline`. The direct runtime is
+the reference backend, `flower-agent-runtime-workflow` makes the same control
+stages observable through Flower Flow/Step, and durable waits are left to a
+future event-loop backend.
 
 For the broader ecosystem vision, see
 [FLOWER_ECOSYSTEM_VISION.md](docs/vision/FLOWER_ECOSYSTEM_VISION.md).
@@ -134,13 +136,16 @@ uses -> AI execution backend
         - token / cost tracking
         - prompt / schema versioning where supported
 
-default durable backend -> flower
-                           - workflow execution
-                           - durable state
-                           - step orchestration
-                           - resume
-                           - retry policy
-                           - long-running process
+controlled execution backends
+        -> DefaultActionRuntime
+           - synchronous reference implementation
+        -> flower-agent-runtime-workflow
+           - observable control stages through Flower Flow/Step
+        -> future flower-agent-runtime-eventloop
+           - durable waits
+           - approval resume
+           - AI/tool callback waits
+           - timeout / cancellation / recovery
 
 may pass through -> flower-mcp-proxy
                   - tool allowlist
@@ -161,14 +166,17 @@ optional control layer -> flower-agent-runtime-control
 The call direction is not always a simple top-down stack. The agent runtime may
 use `flower-ai-harness`, Spring AI agent utilities, a direct Spring AI
 `ChatClient`, or a host-provided AI executor to produce a planner proposal. It
-may submit durable, high-risk, or long-running execution to `flower`, and may
-route external tool access through a future `flower-mcp-proxy`.
+may drive execution through the direct runtime, the workflow observability
+backend, or a future event-loop durable-wait backend, and may route external tool
+access through a future `flower-mcp-proxy`.
 
 The responsibility model is:
 
 ```text
 flower-agent-runtime = central control layer
-flower               = default durable execution / workflow layer
+ActionPipeline       = semantic source of truth
+workflow backend     = Flower Flow/Step observability layer
+eventloop backend    = future durable-wait layer
 AI execution backend = model/agent interaction layer
 flower-ai-harness    = one supported AI execution backend
 runtime-control      = optional feedback/control layer after validation
@@ -481,7 +489,8 @@ The runtime should translate those declarations into explicit control objects:
 -> DryRun / Approval / Interlock when needed
 -> controlled execution backend
    - direct executor for simple low-risk actions
-   - Flower backend for durable/high-risk/long-running actions
+   - workflow backend for observable control stages
+   - future event-loop backend for durable waits
 -> ControlledActionExecutor
 -> Audit / Trace / Result
 ```
@@ -1244,8 +1253,10 @@ ArchDox worker runtime validation in progress.
 MCP proxy is a future optional module, not Flower core.
 Minimal trace/policy/audit control model documented.
 Runtime boundary narrowed around execution lifecycle management.
-Flower is the default durable execution backend; LangGraph4j is only a possible
-future adapter behind the same action/policy/audit boundary.
+ActionPipeline is the semantic source of truth. The workflow backend is for
+observability, and the future event-loop backend is for durable waits.
+LangGraph4j is only a possible future adapter behind the same
+action/policy/audit boundary.
 flower-agent-runtime-control is optional and deferred until a host application
 proves repeated feedback/control patterns.
 ```

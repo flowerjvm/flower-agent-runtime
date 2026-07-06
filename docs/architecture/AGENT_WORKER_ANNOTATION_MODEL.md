@@ -78,8 +78,9 @@ host adapter normalizes a user, UI, REST, MCP, batch, or AI-planner request
 -> ApprovalGate when needed
 -> RuntimeInterlock
 -> controlled execution backend
-   - Flower by default for durable, high-risk, or long-running actions
-   - direct executor may be enough for simple low-risk actions
+   - direct executor for simple synchronous actions
+   - workflow backend for observable control stages
+   - future event-loop backend for durable waits
 -> ControlledActionExecutor
 -> Domain service
 -> Audit / Trace / Result
@@ -285,8 +286,12 @@ Flower execution should also stay behind a runtime backend boundary.
 
 ```text
 flower-agent-runtime-workflow
-  = default backend for durable, high-risk, or long-running controlled actions
-  = maps ActionProposal to Flower Flow only when Flower execution is appropriate
+  = observability backend for controlled action stages
+  = maps ActionPipeline stages to Flower Flow/Step
+  = not the durable-wait backend
+
+future flower-agent-runtime-eventloop
+  = durable-wait backend for approval, callback, timeout, and resume
 ```
 
 This keeps the core model usable without Spring and prevents annotation details

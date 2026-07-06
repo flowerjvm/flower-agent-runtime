@@ -1,17 +1,27 @@
 # Execution Backend Strategy
 
-This document defines how `flower-agent-runtime` should relate to Flower as the
-default durable backend, LangGraph-style graphs, and future execution backends.
+This document defines how `flower-agent-runtime` should relate to Flower,
+flower-eventloop, LangGraph-style graphs, and future execution backends.
 
 The key decision:
 
 ```text
-Default durable execution backend = Flower.
-Future optional backend = LangGraph4j adapter or other executor adapter.
-Public runtime identity = ActionRegistry + PolicyGate + Approval + Audit.
+Controlled-action semantics = engine-neutral ActionPipeline (core).
+Reference backend        = DefaultActionRuntime (direct, synchronous).
+Observability backend    = flower-core Flow/Step (flower-agent-runtime-workflow).
+Durable-wait backend     = future flower-eventloop (flower-agent-runtime-eventloop).
+Optional graph backend   = future LangGraph4j adapter.
+Public runtime identity  = ActionRegistry + PolicyGate + Approval + Audit.
 ```
 
 Do not make graph authoring the primary public API of `flower-agent-runtime`.
+
+An earlier version of this document framed Flower Flow as "the default durable
+execution backend." That framing is refined below (see
+[Backend Layering](#backend-layering-refined-model)): the controlled-action
+semantics do not live in any engine, the Flower Flow backend provides *observable*
+control stages rather than durable waiting, and durable waiting/approval-resume
+is the future event-loop backend's job.
 
 ## Why This Document Exists
 
@@ -42,6 +52,83 @@ How do we audit, resume, cancel, and diagnose it?
 So the runtime may use flow/graph mechanics internally, but the public control
 model should remain action-first and policy-first.
 
+## Backend Layering (Refined Model)
+
+This section captures what the parity work between the direct and Flow backends
+actually proved. The lesson was not "stabilize the semantics on flower-core." It
+was the opposite: the semantics must live outside any engine, and each engine is
+a dumb driver of the same pipeline.
+
+### Semantics live in the pipeline, not the engine
+
+The controlled-action semantics - registry lookup, input validation, policy,
+approval boundary, audit, idempotency, and failure handling - live in an
+engine-neutral `ActionPipeline` in `flower-agent-runtime-core`, as an ordered list
+of stages over a shared `ActionExecutionSession`.
+
+```text
+record-proposal -> reserve-duplicate -> resolve-action -> validate-input
+-> evaluate-policy -> execute-action -> record-result (finalize)
+```
+
+`DefaultActionRuntime` (direct, synchronous) runs these stages in-thread and is the
+**reference implementation** of the envelope semantics. Every other backend must
+run the *same* stages and stay in behavioral parity with the direct runtime
+(status, message, output, and the full audit trail). Parity is enforced by tests.
+An engine is a driver; it must not carry governance logic.
+
+### The two backends and their real roles
+
+`flower-agent-runtime-workflow` (flower-core `Flow`/`Step`) exists for
+**observability**, not durability. It renders the control stages as a Flower Flow
+so `Engine.dump()`, the console, and lifecycle listeners can show which control
+stage an action is at. Because the gate stages contain no `stay()`/waiting, this
+backend drives the pipeline as a synchronous sequencer: it is behaviorally
+identical to the direct runtime (proven by parity tests) and does **not** suspend,
+wait for approval across time, or recover across restart.
+
+```text
+flower-agent-runtime-workflow
+  = observable control stages for a synchronous governance pass
+  != durable waiting / approval-resume / crash recovery
+```
+
+Do not build human-approval, long external waits, or resume-after-restart on the
+workflow backend. It cannot suspend. Its `ActionExecutionSession` is an in-memory
+object that is discarded when `handle(...)` returns.
+
+`flower-agent-runtime-eventloop` (future, on `flower-eventloop`) is the
+**durable-wait** backend. `flower-eventloop` is purpose-built for LLM responses,
+MCP/tool callbacks, approval events, external-system responses, and large numbers
+of mostly-idle actions, with durable await checkpoints (signal name/key plus
+deadline). Approval-as-`await(signal(...))`, async execution via `thenRunAsync`,
+timeout/cancel, and durable resume belong here.
+
+Two constraints on that future work:
+
+```text
+1. Build it together with the first real wait feature (approval-wait), and
+   validate it in a host application (for example ArchDox) - not before, or it
+   is just a heavier no-op wrapper like the current synchronous drive.
+2. Adopting it requires evolving the ActionRuntime contract to a suspend/resume-
+   aware shape. The synchronous handle(proposal, ctx) -> ActionExecutionResult
+   cannot express "SUSPENDED, awaiting signal X, resume later"; today it can only
+   return PENDING_APPROVAL and forget.
+```
+
+`flower-eventloop` is an MVP/experimental module whose API is not yet stable.
+Coupling the durable backend to it is acceptable because both are pre-1.0 and are
+meant to co-evolve, but it is a deliberate bet on an experimental engine.
+
+### Where the module boundary sits
+
+```text
+flower-agent-runtime-core       ActionPipeline + contracts (engine-neutral, the truth)
+  DefaultActionRuntime          direct synchronous reference backend
+flower-agent-runtime-workflow   flower-core Flow/Step observability backend
+flower-agent-runtime-eventloop  future flower-eventloop durable-wait backend
+```
+
 ## Core Rule
 
 ```text
@@ -49,8 +136,10 @@ ActionRegistry is the source of truth.
 PolicyGate controls execution.
 ApprovalGate controls interlocks.
 AuditSink and TraceSink record what happened.
-Flower is the default backend for durable, high-risk, or long-running action
-execution.
+ActionPipeline owns the controlled-action semantics.
+DefaultActionRuntime is the synchronous reference backend.
+flower-agent-runtime-workflow exposes the same stages for observability.
+flower-agent-runtime-eventloop is the future durable-wait backend.
 Optional runtime-control may wrap execution only after host applications prove
 repeated sensor/error/correction patterns.
 ```
@@ -67,17 +156,18 @@ Host adapter normalizes user / system / MCP / scheduler / planner requests
 -> PolicyGate
 -> optional ApprovalGate
 -> optional runtime-control wrapper
--> AgentActionExecutor
-   -> default: FlowerActionExecutor
-   -> future optional: LangGraph4jActionExecutor
-   -> future optional: ExternalWorkflowActionExecutor
+-> controlled execution backend
+   -> DefaultActionRuntime
+   -> flower-agent-runtime-workflow
+   -> future flower-agent-runtime-eventloop
+   -> future optional LangGraph4j / external workflow adapter
 -> AuditSink / TraceSink
 -> ActionExecutionResult
 ```
 
-The selected executor is an implementation detail behind the runtime boundary.
-Every executor must obey the same policy, approval, audit, idempotency, timeout,
-and cancellation contract.
+The selected backend is an implementation detail behind the runtime boundary.
+Every backend must drive the same `ActionPipeline` semantics and obey the same
+policy, approval, audit, idempotency, timeout, and cancellation contract.
 
 ## Flower Step vs LangGraph Node
 
@@ -107,14 +197,34 @@ LangGraph:
 
 flower-agent-runtime:
   Model the registered business action first.
-  Let the runtime select or submit the controlled Flower Flow behind it.
+  Let the runtime select the controlled execution backend behind it.
 ```
 
-## Default Flower Backend Model
+## Backend Selection Model
 
-For v1, durable/high-risk/long-running execution should be Flower-based.
-Simple low-risk actions may use a direct executor behind the same policy and
-audit boundary.
+The runtime does not start by choosing a graph engine. It starts by resolving a
+registered action and running the core `ActionPipeline`.
+
+Implemented today:
+
+```text
+DefaultActionRuntime
+  = direct synchronous reference backend.
+
+flower-agent-runtime-workflow
+  = same pipeline rendered as Flower Flow/Step for observability.
+```
+
+Future:
+
+```text
+flower-agent-runtime-eventloop
+  = durable-wait backend for approval waits, AI/tool callbacks, timeout,
+    cancellation, and resume.
+
+LangGraph4j / external workflow adapters
+  = optional backends behind the same action/policy/audit boundary.
+```
 
 Example:
 
@@ -124,18 +234,19 @@ Example:
 -> ActionRegistry resolves ActionDefinition
 -> PolicyGate evaluates actor, tenant, data, risk, and effect type
 -> ApprovalGate blocks if action start approval is required
--> FlowerActionExecutor submits GenerateAndReviewDocumentFlow
--> Flow runs document generation, validation, mid-flow approval, review, persist
+-> selected backend drives the shared ActionPipeline
+-> action executor performs document generation, validation, review, persist
 -> AuditSink records proposal, policy decision, approval, execution, result
 ```
 
-Inside the Flower Flow:
+If the action itself needs a domain workflow, that domain workflow is still an
+executor detail behind the controlled action boundary:
 
 ```text
 PrepareDocumentContextStep
 GenerateDraftStep
 ValidateDraftStep
-RequestUserApprovalStep
+future eventloop-backed approval wait, if needed
 ReviewDocumentStep
 ApplyReviewResultStep
 PersistFinalDocumentStep
@@ -143,9 +254,11 @@ EmitCompletedEventStep
 ```
 
 The user sees a controlled action. The runtime sees an action envelope. Flower
-sees a flow and steps only when the selected backend is Flower.
+Flow sees control stages only when the selected backend is
+`flower-agent-runtime-workflow`; durable waits belong to the future event-loop
+backend.
 
-## Approval Inside A Flow
+## Approval During Controlled Execution
 
 Approval can appear in two places.
 
@@ -161,9 +274,10 @@ Does this write action require approval before any work begins?
 Is the tenant allowed to use this worker?
 ```
 
-### During Flow Execution
+### During Durable-Wait Execution
 
-Use a Flower step when the approval point is part of the business process.
+Use the future durable-wait backend when the approval point is part of the
+business process and must survive time, callbacks, or restart.
 
 Examples:
 
@@ -175,7 +289,7 @@ AI proposed a legal phrase.
 Reviewer must approve before it is applied to a report.
 ```
 
-The approval step must not block a worker thread while waiting for a human.
+The approval wait must not block a worker thread while waiting for a human.
 
 Correct behavior:
 
@@ -190,6 +304,12 @@ RequestUserApprovalStep
 
 This makes approval a visible and recoverable workflow state, not a hidden
 synchronous wait.
+
+Note: this suspend-and-resume-on-event behavior is the **durable-wait
+(event-loop) backend's** role, not the synchronous workflow backend's. On the
+`flower-agent-runtime-workflow` backend the approval boundary short-circuits to a
+`PENDING_APPROVAL` result and the run ends; it does not park a durable await. See
+[Backend Layering](#backend-layering-refined-model).
 
 ## User-Facing API
 
@@ -226,14 +346,16 @@ controlled backend selection, trace, and audit.
 The annotation/proxy layer is convenience. It must remain a thin adapter over
 the explicit runtime contracts.
 
-## Executor SPI
+## Execution Backend SPI
 
-Do not add multiple backends before the Flower backend is proven.
+Do not add multiple backends before the core `ActionPipeline` semantics are
+proven.
 
-After the v1 Flower executor is stable, introduce an executor SPI such as:
+After repeated host use proves a second execution style is needed, introduce a
+backend SPI such as:
 
 ```java
-public interface AgentActionExecutor {
+public interface ControlledActionBackend {
     ActionExecutionResult execute(ActionExecution execution);
 }
 ```
@@ -241,8 +363,14 @@ public interface AgentActionExecutor {
 Suggested implementations:
 
 ```text
-FlowerActionExecutor
-  = default official backend.
+DefaultActionRuntime
+  = direct synchronous reference backend.
+
+WorkflowActionRuntime
+  = Flower Flow/Step observability backend.
+
+EventLoopActionRuntime
+  = future durable-wait backend.
 
 LangGraph4jActionExecutor
   = optional future adapter.
@@ -251,16 +379,16 @@ ExternalWorkflowActionExecutor
   = optional adapter for host systems.
 ```
 
-The SPI should receive an already-approved execution request. It should not be
-the place where business policy is decided.
+The SPI should receive an already-approved or policy-evaluated execution request.
+It should not be the place where business policy is decided.
 
 ## AI Execution Backend SPI
 
-Separate the action/workflow executor from the AI execution backend.
+Separate the controlled action backend from the AI execution backend.
 
-`FlowerActionExecutor` decides how a controlled action is executed as a Flower
-workflow. Inside that workflow, one or more steps may need AI execution. Those
-AI steps should not be hardwired to `flower-ai-harness`.
+The controlled action backend decides how the action envelope is driven. Inside
+the action executor, one or more steps may need AI execution. Those AI steps
+should not be hardwired to `flower-ai-harness`.
 
 Use an AI execution SPI such as:
 
@@ -294,7 +422,7 @@ ActionProposal
 -> ActionRegistry
 -> PolicyGate
 -> ApprovalGate
--> Flower workflow
+-> controlled execution backend
 -> AiExecutionBackend
 -> Sensor / Control / Trace
 -> ActionExecutionResult
@@ -363,83 +491,97 @@ The first implementation should provide:
 ActionDefinition
 ActionProposal
 ActionRegistry
+ActionPipeline
 PolicyGate
 ApprovalGate contract
 AuditSink
 TraceSink
-AgentActionExecutor contract
-FlowerActionExecutor
-simple Flow template mapping
+DefaultActionRuntime
+WorkflowActionRuntime
+runtime parity tests
 ```
 
-The first Flow templates can be small:
+The first observable workflow mapping can be small:
 
 ```text
-SingleHarnessActionFlow
-ApprovalRequiredActionFlow
-GenerateValidateReviewFlow
-ToolExecutionActionFlow
+record-proposal
+reserve-duplicate
+resolve-action
+validate-input
+evaluate-policy
+execute-action
+record-result
 ```
 
-These templates should be boring and explicit. Do not create a generic graph
+This stage mapping should be boring and explicit. Do not create a generic graph
 engine inside `flower-agent-runtime`.
 
-## Reusable Flow Patterns
+## Reusable Execution Patterns
 
-`flower-agent-runtime` should provide a small set of reusable Flower Flow
-patterns before considering external graph engines.
+`flower-agent-runtime` should first provide contracts, parity tests, and a small
+set of documented execution patterns. It should not imply that every pattern is
+implemented as a Flower Flow backend.
 
-These are not meant to cover every domain. They are starting points that host
-applications can copy, extend, or map to their own domain flows.
+The host application may still use Flower Flow, flower-ai-harness,
+flower-eventloop, or plain domain code inside an approved action executor. The
+runtime boundary remains the same.
 
 Suggested initial patterns:
 
 ```text
-SingleActionFlow
-  = execute one approved business action and emit result/audit.
+DirectSynchronousAction
+  = run the core ActionPipeline and executor in-thread.
 
-SingleHarnessActionFlow
-  = execute one AI harness as a controlled action.
+ObservableControlPipeline
+  = run the same ActionPipeline through flower-agent-runtime-workflow so
+    control stages are visible.
 
-HarnessValidationFlow
+SingleHarnessAction
+  = execute one AI harness behind the controlled action boundary.
+
+HarnessValidationAction
   = prepare prompt/context, run harness, validate output, emit result.
 
-ApprovalRequiredActionFlow
-  = run pre-approval or mid-flow approval before continuing.
-
-GenerateValidateReviewFlow
+GenerateValidateReviewAction
   = generate draft, validate draft, request approval if needed, review,
     persist final result.
 
-ToolExecutionActionFlow
+ControlledToolAction
   = execute an allowed tool or domain service through a controlled boundary.
 
-MultiHarnessPipelineFlow
+MultiHarnessPipelineAction
   = run two or more harnesses in a fixed business sequence.
+
+FutureApprovalWaitAction
+  = event-loop durable wait for a human approval signal.
+
+FutureToolCallbackWaitAction
+  = event-loop durable wait for an external tool or MCP callback.
 ```
 
-Example document flow:
+Example document execution shape:
 
 ```text
 GenerateDocumentFlow
 1. PrepareDocumentContextStep
 2. GenerateDraftStep
 3. ValidateDraftStep
-4. RequestUserApprovalStep
+4. Future event-loop approval wait, if approval must suspend and resume
 5. ReviewDocumentStep
 6. ApplyReviewResultStep
 7. PersistFinalDocumentStep
 8. EmitCompletedEventStep
 ```
 
-This looks similar to a graph, but it is still a Flower workflow. The point is
-not to hide `Flow` and `Step`. The point is to keep them inside a controlled
-action execution model.
+This looks similar to a graph, but the public model is still the registered
+business action. Flower Flow, eventloop waits, or graph adapters are internal
+execution choices behind the controlled action boundary.
 
-## Reusable Step Patterns
+## Reusable Step / Stage Patterns
 
-The runtime should also document and eventually provide small reusable step
-patterns.
+The runtime should also document small reusable stage patterns. Some are current
+`ActionPipeline` stages; some are host-domain steps; durable waits are future
+event-loop patterns.
 
 Suggested initial step categories:
 
@@ -460,10 +602,10 @@ RefineOrRetryDecisionStep
   = decide whether to retry, refine, fallback, fail, or continue.
 
 RequestApprovalStep
-  = create ApprovalRequest, emit event, move run to WAITING_APPROVAL.
+  = future event-loop pattern: create ApprovalRequest, emit event, park run.
 
 ResumeAfterApprovalStep
-  = continue, branch, or cancel based on approval result.
+  = future event-loop pattern: continue, branch, or cancel based on approval.
 
 RunControlledToolStep
   = call a domain tool or MCP proxy through the controlled boundary.
@@ -492,18 +634,17 @@ For example, a domain-specific step may generate an ArchDox report paragraph,
 but it should not bypass action policy, approval, audit, or harness/tool
 boundaries.
 
-## Custom Step Support
+## Host Execution Customization
 
-The framework should not force every workflow into a predefined template.
+The framework should not force every action into a predefined workflow template.
 
 Recommended model:
 
 ```text
-framework provides common Flow/Step patterns
-host application provides domain-specific Steps
-ActionDefinition maps actionId to a Flow template or Flow factory
-runtime backend submits the selected Flower Flow only when Flower execution is
-appropriate after policy/approval checks
+framework provides the controlled action boundary
+host application provides domain-specific executors, Steps, or workflows
+ActionDefinition maps actionId to the approved executor
+the selected backend drives the shared ActionPipeline before execution
 ```
 
 This allows both simple and advanced usage:
@@ -511,11 +652,11 @@ This allows both simple and advanced usage:
 ```text
 simple:
   @Action("run-document-qa")
-  -> default SingleHarnessActionFlow
+  -> SingleHarnessAction executor
 
 advanced:
   @Action("generate-and-review-document")
-  -> custom GenerateDocumentFlow with domain-specific Steps
+  -> custom domain workflow with domain-specific Steps
 ```
 
 The public extension point should be "provide a controlled Flow/Step execution
@@ -564,9 +705,10 @@ When asking an AI coding agent to implement this project, include this rule:
 ```text
 Do not make LangGraph-style graphs the main public API.
 Keep ActionRegistry, PolicyGate, ApprovalGate, AuditSink, and TraceSink as the
-runtime source of truth. Use Flower Flow as the default internal execution
-backend. LangGraph4j, if added later, is only an AgentActionExecutor adapter
-behind the same controlled action boundary.
+runtime source of truth. Keep controlled-action semantics in the engine-neutral
+ActionPipeline. Use the workflow backend only to make control stages observable;
+use a future event-loop backend for durable waits. LangGraph4j, if added later,
+is only an adapter behind the same controlled action boundary.
 ```
 
 This prevents the framework from turning into a graph clone and keeps the
@@ -575,6 +717,8 @@ identity clear:
 ```text
 Simple action declaration outside.
 Controlled execution runtime inside.
-Flower Flow as the default durable workflow engine.
+ActionPipeline as the semantic source of truth.
+Workflow backend for observability.
+Future event-loop backend for durable waits.
 Optional graph backends only behind the runtime contract.
 ```

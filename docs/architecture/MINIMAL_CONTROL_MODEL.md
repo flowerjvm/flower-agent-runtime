@@ -70,9 +70,11 @@ provide the real policy content.
 Execution backend decision:
 
 ```text
-Flower is the default durable backend for controlled action execution when the
-action needs workflow state, waiting, approval handling, recovery, or other
-long-running behavior.
+ActionPipeline owns the controlled-action semantics.
+DefaultActionRuntime is the direct synchronous reference backend.
+flower-agent-runtime-workflow is the observability backend for control stages.
+flower-agent-runtime-eventloop is the future durable-wait backend for approval
+handling, callbacks, recovery, or other long-running behavior.
 Other graph/workflow engines may be added later only as executor adapters
 behind the same ActionRegistry, PolicyGate, ApprovalGate, TraceSink, and
 AuditSink boundary.
@@ -92,7 +94,8 @@ User / system request
 -> optional ApprovalGate
 -> selected backend executes the controlled action
    - direct executor for simple low-risk actions
-   - Flower backend for durable/high-risk/long-running actions
+   - workflow backend for observable control stages
+   - future event-loop backend for durable waits
 -> DomainActionExecutor calls host domain service
 -> AuditSink records proposal, decision, execution, result
 -> Result returns to user / worker / workflow
