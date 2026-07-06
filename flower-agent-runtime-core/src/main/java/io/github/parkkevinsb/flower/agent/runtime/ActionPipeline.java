@@ -291,7 +291,7 @@ public final class ActionPipeline {
         return switch (result.status()) {
             case SUCCEEDED -> ActionRunStatus.SUCCEEDED;
             case FAILED -> ActionRunStatus.FAILED;
-            case DENIED, VALIDATION_FAILED, DUPLICATE -> ActionRunStatus.DENIED;
+            case DENIED, VALIDATION_FAILED -> ActionRunStatus.DENIED;
             case PENDING_APPROVAL -> ActionRunStatus.WAITING_APPROVAL;
         };
     }

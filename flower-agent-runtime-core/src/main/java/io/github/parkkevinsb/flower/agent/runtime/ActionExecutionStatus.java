@@ -5,6 +5,5 @@ public enum ActionExecutionStatus {
     FAILED,
     DENIED,
     VALIDATION_FAILED,
-    PENDING_APPROVAL,
-    DUPLICATE
+    PENDING_APPROVAL
 }
