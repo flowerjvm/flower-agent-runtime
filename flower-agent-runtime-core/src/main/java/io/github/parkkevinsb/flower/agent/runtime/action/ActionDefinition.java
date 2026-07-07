@@ -5,6 +5,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Declares an action the runtime is allowed to execute through a controlled pipeline.
+ *
+ * <p>{@code requiredPermissions} is a policy input contract. The default core policy gate does not enforce it because
+ * core has no actor permission source. Host-specific or external {@code PolicyGate} implementations should compare it
+ * with trusted actor permissions supplied by the host application.</p>
+ */
 public record ActionDefinition(
         String actionId,
         String title,
