@@ -6,6 +6,12 @@ import io.github.parkkevinsb.flower.agent.runtime.ExecutionContext;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * In-memory duplicate policy for tests, single-process demos, and local development.
+ *
+ * <p>This implementation is unbounded: the completed-result map grows without TTL or eviction. Production
+ * deployments should use a durable policy with TTL/eviction and tenant/action scoping.</p>
+ */
 public final class InMemoryDuplicateActionPolicy implements DuplicateActionPolicy {
     private final Map<String, ActionExecutionResult> completed = new ConcurrentHashMap<>();
     private final Map<String, Boolean> running = new ConcurrentHashMap<>();

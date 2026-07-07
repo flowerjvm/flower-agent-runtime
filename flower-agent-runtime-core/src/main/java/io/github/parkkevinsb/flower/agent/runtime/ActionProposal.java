@@ -4,6 +4,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Proposed business action and its loose input payload.
+ *
+ * <p>The {@code input} and {@code metadata} maps are intentional MVP flexibility. Core stays free of JSON and typed
+ * schema frameworks; use {@code ActionInputValidator} for validation. A typed action adapter can later translate
+ * typed request objects to and from these maps at a module boundary.</p>
+ */
 public record ActionProposal(
         String proposalId,
         String actionId,

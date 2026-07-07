@@ -5,6 +5,13 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * In-memory run store for tests, single-process demos, and local development.
+ *
+ * <p>This implementation is an unbounded in-memory map. Runs disappear when the process exits, and there is no
+ * TTL, eviction, or cross-process coordination. Production deployments should use a durable implementation such as
+ * JDBC.</p>
+ */
 public final class InMemoryRunStore implements RunStore {
     private final ConcurrentMap<String, ActionRun> byId = new ConcurrentHashMap<>();
 

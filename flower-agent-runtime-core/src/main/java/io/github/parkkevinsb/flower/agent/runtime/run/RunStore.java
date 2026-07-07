@@ -3,6 +3,14 @@ package io.github.parkkevinsb.flower.agent.runtime.run;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Stores persistent action-run state.
+ *
+ * <p>Concurrency model, current version: single-node / single-worker assumption. The event-loop backend serializes
+ * resume on one worker thread and resume is idempotent, which prevents double execution within one process. Multi-node
+ * deployments, where several processes recover from the same store, can double-execute without compare-and-set or
+ * status-transition-guarded updates. That coordination is not provided yet.</p>
+ */
 public interface RunStore {
     ActionRun create(ActionRun run);
 
