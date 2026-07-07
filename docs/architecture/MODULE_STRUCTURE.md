@@ -1,26 +1,26 @@
 # Module Structure
 
 This document defines the intended Maven multi-module shape for a future
-`flower-agent-runtime` project.
+`flower-action-runtime` project.
 
 The long-term project may be structured like `flower` and `flower-ai-harness`:
 
 ```text
-flower-agent-runtime
+flower-action-runtime
   pom.xml
-  flower-agent-runtime-core
-  flower-agent-runtime-workflow
-  flower-agent-runtime-eventloop
-  flower-agent-runtime-control
-  flower-agent-runtime-ai-execution
-  flower-agent-runtime-ai-harness
-  flower-agent-runtime-spring-ai-agent
-  flower-agent-runtime-spring
-  flower-agent-runtime-spring-boot-starter
-  flower-agent-runtime-test
-  flower-agent-runtime-observability
-  flower-agent-runtime-mcp
-  flower-agent-runtime-langgraph4j
+  flower-action-runtime-core
+  flower-action-runtime-workflow
+  flower-action-runtime-eventloop
+  flower-action-runtime-control
+  flower-action-runtime-ai-execution
+  flower-action-runtime-ai-harness
+  flower-action-runtime-spring-ai-agent
+  flower-action-runtime-spring
+  flower-action-runtime-spring-boot-starter
+  flower-action-runtime-test
+  flower-action-runtime-observability
+  flower-action-runtime-mcp
+  flower-action-runtime-langgraph4j
 ```
 
 This is not the implementation plan for the first extraction. It is only a
@@ -29,16 +29,16 @@ long-term map of possible boundaries.
 The first extraction is much smaller:
 
 ```text
-flower-agent-runtime-core
-flower-agent-runtime-workflow
-flower-agent-runtime-test
+flower-action-runtime-core
+flower-action-runtime-workflow
+flower-action-runtime-test
 ```
 
-`flower-agent-runtime-core` and `flower-agent-runtime-workflow` have been
+`flower-action-runtime-core` and `flower-action-runtime-workflow` have been
 scaffolded first. Everything else should stay in host applications or
 documentation until real usage proves the boundary.
 
-In particular, `flower-agent-runtime-control` is not part of the first
+In particular, `flower-action-runtime-control` is not part of the first
 extraction. It should appear only after a host application proves that the same
 sensor/error/correction pattern repeats across real actions.
 
@@ -59,7 +59,7 @@ intervention.
 module should be broader and safer:
 
 ```text
-flower-agent-runtime-control
+flower-action-runtime-control
 ```
 
 This keeps room for:
@@ -82,7 +82,7 @@ execution.
 
 ## Module Responsibilities
 
-### flower-agent-runtime-core
+### flower-action-runtime-core
 
 Purpose:
 
@@ -132,7 +132,7 @@ in-thread and is the reference implementation of the envelope semantics. Every
 backend must run the same stages and stay in behavioral parity with the direct
 runtime.
 
-### flower-agent-runtime-workflow
+### flower-action-runtime-workflow
 
 Purpose:
 
@@ -160,7 +160,7 @@ or recover across restart. Its value is inspection, not durability. Approval and
 long external waits must not be built on it - see
 [Execution Backend Strategy](EXECUTION_BACKEND_STRATEGY.md) (Backend Layering).
 
-### flower-agent-runtime-eventloop
+### flower-action-runtime-eventloop
 
 Purpose:
 
@@ -188,7 +188,7 @@ Adopting this backend requires evolving the `ActionRuntime` contract to a
 suspend/resume-aware shape; the synchronous `handle(...) -> ActionExecutionResult`
 cannot express a parked, resumable run.
 
-### flower-agent-runtime-control
+### flower-action-runtime-control
 
 Purpose:
 
@@ -241,7 +241,7 @@ The framework owns how errors are handled.
 The host application owns what counts as an error.
 ```
 
-### flower-agent-runtime-ai-execution
+### flower-action-runtime-ai-execution
 
 Purpose:
 
@@ -288,10 +288,10 @@ controlled action
 -> sensors / control / trace
 ```
 
-This keeps `flower-agent-runtime` from being locked to one harness
+This keeps `flower-action-runtime` from being locked to one harness
 implementation.
 
-### flower-agent-runtime-ai-harness
+### flower-action-runtime-ai-harness
 
 Purpose:
 
@@ -307,28 +307,28 @@ AiExecutionRequest -> AiHarnessFlow
 AiHarnessRunContext -> AiExecutionResult
 HarnessResultAdapter
 flower-ai-harness trace -> runtime execution event
-optional ControlEvent adapter when flower-agent-runtime-control is present
+optional ControlEvent adapter when flower-action-runtime-control is present
 ```
 
 This module wraps `flower-ai-harness`. It should not make `flower-ai-harness`
-depend on `flower-agent-runtime`.
+depend on `flower-action-runtime`.
 
 Correct direction:
 
 ```text
-flower-agent-runtime-ai-harness
-  -> flower-agent-runtime-ai-execution
-  -> flower-agent-runtime-core
+flower-action-runtime-ai-harness
+  -> flower-action-runtime-ai-execution
+  -> flower-action-runtime-core
   -> flower-ai-harness
 
 optional:
-  -> flower-agent-runtime-control
+  -> flower-action-runtime-control
 ```
 
 Avoid putting business action policy, domain sensors, approval rules, or
 long-term I/D governance inside `flower-ai-harness`.
 
-### flower-agent-runtime-spring-ai-agent
+### flower-action-runtime-spring-ai-agent
 
 Purpose:
 
@@ -369,9 +369,9 @@ ActionRegistry
 
 Spring AI agent projects can be used as execution engines or evaluation tools,
 but they should not own ArchDox/TOS business policy inside
-`flower-agent-runtime`.
+`flower-action-runtime`.
 
-### flower-agent-runtime-spring
+### flower-action-runtime-spring
 
 Purpose:
 
@@ -383,7 +383,7 @@ Responsibilities:
 
 ```text
 @WorkerProfile or @AgentProfile
-@AgentWorker
+@ActionWorker
 @Action
 @ReadOnlyAction
 @DraftAction
@@ -407,7 +407,7 @@ Explicit contracts first.
 Annotation convenience later.
 ```
 
-### flower-agent-runtime-spring-boot-starter
+### flower-action-runtime-spring-boot-starter
 
 Purpose:
 
@@ -428,7 +428,7 @@ provide conditional default no-op or deny-all beans
 
 This should be thin. It should not contain domain policy.
 
-### flower-agent-runtime-test
+### flower-action-runtime-test
 
 Purpose:
 
@@ -454,7 +454,7 @@ scenario runner fixtures
 This module is important because host applications like ArchDox and
 Agent-native-TOS should verify the control envelope with repeatable scenarios.
 
-### flower-agent-runtime-observability
+### flower-action-runtime-observability
 
 Purpose:
 
@@ -479,7 +479,7 @@ export adapters if needed later
 This module should provide data contracts first. Do not build a large dashboard
 before real data exists.
 
-### flower-agent-runtime-mcp
+### flower-action-runtime-mcp
 
 Purpose:
 
@@ -510,7 +510,7 @@ TraceSink
 AuditSink
 ```
 
-### flower-agent-runtime-langgraph4j
+### flower-action-runtime-langgraph4j
 
 Purpose:
 
@@ -528,7 +528,7 @@ trace/audit bridge
 tool call boundary enforcement
 ```
 
-This must remain an adapter behind `AgentActionExecutor` or
+This must remain an adapter behind `ActionExecutionBackend` or
 `ControlledActionExecutor`.
 
 It must not become the primary public API.
@@ -544,25 +544,25 @@ Phase 0:
   documentation and ArchDox / TOS validation.
 
 Phase 1:
-  flower-agent-runtime-core
-  flower-agent-runtime-workflow
-  flower-agent-runtime-test
+  flower-action-runtime-core
+  flower-action-runtime-workflow
+  flower-action-runtime-test
 
 Phase 2:
-  optional flower-agent-runtime-control only after one control loop works in a host app.
+  optional flower-action-runtime-control only after one control loop works in a host app.
 
 Phase 3:
-  optional flower-agent-runtime-ai-execution / flower-ai-harness adapter.
+  optional flower-action-runtime-ai-execution / flower-ai-harness adapter.
 
 Phase 4:
-  flower-agent-runtime-spring
-  flower-agent-runtime-spring-boot-starter
+  flower-action-runtime-spring
+  flower-action-runtime-spring-boot-starter
 
 Phase 5:
   optional MCP, observability, Spring AI agent, or LangGraph4j adapters only
   after real integration pressure appears.
 
-  flower-agent-runtime-eventloop only together with the first real wait feature
+  flower-action-runtime-eventloop only together with the first real wait feature
   (approval-wait) and a suspend/resume-aware ActionRuntime contract, validated
   in a host application first.
 ```

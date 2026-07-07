@@ -5,7 +5,7 @@ control-theory-inspired LLM feedback loops.
 
 This is not a `flower-core` responsibility and not a reason to make
 `flower-ai-harness` own business governance. Treat this as the future operating
-model for an optional `flower-agent-runtime-control` layer after host
+model for an optional `flower-action-runtime-control` layer after host
 applications prove small feedback loops in real work.
 
 The key idea:

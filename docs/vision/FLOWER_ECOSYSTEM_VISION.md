@@ -1,9 +1,9 @@
 # Flower Ecosystem Vision
 
 This document captures the long-term ecosystem direction behind Flower,
-`flower-ai-harness`, and the possible future `flower-agent-runtime` project.
+`flower-ai-harness`, and the possible future `flower-action-runtime` project.
 
-Former working names: `flower-agent-orchestration`, `flower-action-runtime`.
+Former working names: `flower-agent-orchestration`, `flower-agent-runtime`.
 
 For the narrowed execution-runtime boundary, TOS analogy, AI mapping, and
 control-layer placement, see
@@ -89,7 +89,7 @@ tool-calling, memory, graph traversal, and model integration.
 The sharper position is:
 
 ```text
-Controlled agent runtime for AI-driven business actions.
+Controlled action runtime for AI-driven business actions.
 ```
 
 In other words:
@@ -174,7 +174,7 @@ test fake providers
 
 It does not own the whole business workflow.
 
-### Layer 3: flower-agent-runtime
+### Layer 3: flower-action-runtime
 
 Purpose:
 
@@ -197,22 +197,22 @@ audit event model
 replay-friendly snapshots
 ```
 
-`flower-agent-runtime` owns the governance envelope around actions.
+`flower-action-runtime` owns the governance envelope around actions.
 
 It does not own domain recipes. The host application owns domain recipes.
 
-It is the center of the controlled agent runtime stack:
+It is the center of the controlled action runtime stack:
 
 ```text
-Flower Agent Runtime
+Flower Action Runtime
   powered by flower workflow engine
   may use flower-ai-harness for reliable AI tasks
-  may use flower-agent-runtime-control after feedback patterns are proven
+  may use flower-action-runtime-control after feedback patterns are proven
   secured by flower-mcp-proxy
   validated first by host applications such as ArchDox
 ```
 
-### Optional Layer: flower-agent-runtime-control
+### Optional Layer: flower-action-runtime-control
 
 Purpose:
 
@@ -233,7 +233,7 @@ control event model
 ```
 
 This layer is not part of `flower-core` and should not be built into
-`flower-ai-harness`. It belongs near `flower-agent-runtime` because the control
+`flower-ai-harness`. It belongs near `flower-action-runtime` because the control
 problem is about how AI/tool results become business actions over time.
 
 Do not implement it first. Validate a small loop in ArchDox or Agent-native-TOS,
@@ -314,10 +314,10 @@ Agent
 
 This makes Flower a tool firewall for business systems.
 
-Relationship to `flower-agent-runtime`:
+Relationship to `flower-action-runtime`:
 
 ```text
-flower-agent-runtime
+flower-action-runtime
   = required controlled agent/action runtime
   = business execution boundary
   = decides whether a registered business action can execute
@@ -333,7 +333,7 @@ Without MCP:
 
 ```text
 Chat UI / REST API
--> flower-agent-runtime
+-> flower-action-runtime
 -> Flower
 -> Domain service
 ```
@@ -343,7 +343,7 @@ With MCP:
 ```text
 MCP client / AI application
 -> flower-mcp-proxy
--> flower-agent-runtime
+-> flower-action-runtime
 -> Flower
 -> Domain service or MCP server
 ```
@@ -355,13 +355,13 @@ and audit, but they apply them at different levels:
 MCP proxy allowlist
   = which MCP tools are visible or accepted.
 
-Agent runtime ActionRegistry
+Action runtime ActionRegistry
   = which business actions can execute.
 
 MCP proxy audit
   = tool request and response trace.
 
-Agent runtime audit
+Action runtime audit
   = business action proposal, policy decision, approval, execution, result.
 ```
 
@@ -406,7 +406,7 @@ Runtime/data plane:
 ```text
 flower
 flower-ai-harness
-flower-agent-runtime
+flower-action-runtime
 flower-mcp-proxy
 ```
 
@@ -628,7 +628,7 @@ flower-check
 
 flower-test-support
   = reusable tests and fixtures for Flow, Step, event, recovery,
-    ai-harness, and agent-runtime behavior.
+    ai-harness, and action-runtime behavior.
 
 CI integration
   = runs flower-check and tests on push / pull request.
@@ -698,7 +698,7 @@ The action is the controlled unit.
 Long term, the developer experience may become annotation-driven:
 
 ```java
-@AgentWorker("report-worker")
+@ActionWorker("report-worker")
 class ReportWorker {
     @Action("run-document-qa")
     ReviewResult runReview(ReviewRequest request) {
@@ -716,7 +716,7 @@ controlled on the inside
 explicit before magic
 ```
 
-See [AGENT_WORKER_ANNOTATION_MODEL.md](../architecture/AGENT_WORKER_ANNOTATION_MODEL.md).
+See [WORKER_ANNOTATION_MODEL.md](../architecture/WORKER_ANNOTATION_MODEL.md).
 
 ## Runtime Defaults
 
@@ -856,7 +856,7 @@ Flower is not a raw tool framework.
 The near-term position:
 
 ```text
-Controlled Agent Runtime for Java business systems.
+Controlled Action Runtime for Java business systems.
 ```
 
 The long-term ecosystem ambition:
@@ -887,7 +887,7 @@ The healthy path:
    proves real value.
 ```
 
-For now, the generic `flower-agent-runtime` project should remain a concept.
+For now, the generic `flower-action-runtime` project should remain a concept.
 The first implementation should happen inside a host application such as
 ArchDox, where real worker needs, approval rules, UI states, domain services,
 and recovery cases can be observed.
@@ -895,7 +895,7 @@ and recovery cases can be observed.
 The smallest generic model to validate is documented in
 [MINIMAL_CONTROL_MODEL.md](../architecture/MINIMAL_CONTROL_MODEL.md). It keeps
 `flower-ai-harness` focused on AI task reliability and puts trace, policy,
-tool/action audit, approval, and controlled execution in the agent runtime
+tool/action audit, approval, and controlled execution in the action runtime
 layer.
 
 Physical separation should follow evidence. The near-term goal is clear
@@ -919,8 +919,8 @@ Status:
 
 ```text
 Vision sharpened.
-Old working names flower-agent-orchestration and flower-action-runtime replaced
-by flower-agent-runtime.
+Old working names flower-agent-orchestration and flower-agent-runtime replaced
+by flower-action-runtime.
 Generic implementation deferred.
 ArchDox worker runtime validation recommended first.
 MCP proxy is a future optional module, not Flower core.

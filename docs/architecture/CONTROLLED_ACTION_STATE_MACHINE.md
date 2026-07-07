@@ -1,7 +1,7 @@
 # Controlled Action State Machine
 
 This document defines the controlled action state model for
-`flower-agent-runtime`.
+`flower-action-runtime`.
 
 The model is intentionally close to industrial equipment control:
 
@@ -19,7 +19,7 @@ The controlled unit is the business action.
 
 ## 1. Industrial Control Mapping
 
-| Industrial control | AI agent runtime |
+| Industrial control | AI action runtime |
 |---|---|
 | RTG / QC / YT / equipment | Agent / Worker |
 | Equipment command | ActionProposal |
@@ -140,7 +140,7 @@ Risk class is not enough by itself. Policy should also inspect:
 ```text
 tenant
 user
-agent profile
+worker profile
 action input
 business state
 data sensitivity
@@ -374,7 +374,7 @@ ActionEscalated
 
 ## 8. Runtime Responsibilities
 
-`flower-agent-runtime` owns the controlled envelope:
+`flower-action-runtime` owns the controlled envelope:
 
 ```text
 ActionProposal

@@ -1,7 +1,7 @@
 # Minimal Control Model
 
 This document defines the smallest useful trace, policy, and audit model for
-`flower-agent-runtime`.
+`flower-action-runtime`.
 
 The goal is not to build an enterprise governance platform first. The goal is
 to give host applications such as ArchDox a small control envelope that can be
@@ -29,7 +29,7 @@ fake provider testing
 
 That is enough for now.
 
-The new control work belongs in `flower-agent-runtime`, because the problem is
+The new control work belongs in `flower-action-runtime`, because the problem is
 not "did the model call complete?" The problem is:
 
 ```text
@@ -38,11 +38,11 @@ Was it controlled, approved, audited, and recoverable?
 ```
 
 Do not move business action policy into `flower-ai-harness`. The harness should
-remain a reliable AI task executor. The agent runtime should own business
+remain a reliable AI task executor. The action runtime should own business
 action governance.
 
 If feedback/control behavior becomes reusable, extract it as an optional
-`flower-agent-runtime-control` module after host validation. Do not put it in
+`flower-action-runtime-control` module after host validation. Do not put it in
 `flower-core` or make `flower-ai-harness` responsible for business governance.
 
 ## Layer Boundary
@@ -52,11 +52,11 @@ flower-ai-harness
   = reliable AI task execution
   = model lifecycle, validation, retry/refine, fallback, AI trace
 
-flower-agent-runtime
+flower-action-runtime
   = controlled business action runtime
   = action proposal, policy, dry-run, approval, execution, audit
 
-flower-agent-runtime-control
+flower-action-runtime-control
   = optional feedback/control layer after validation
   = sensors, error signals, correction decisions, aggregation, circuit breakers
 
@@ -72,8 +72,8 @@ Execution backend decision:
 ```text
 ActionPipeline owns the controlled-action semantics.
 DefaultActionRuntime is the direct synchronous reference backend.
-flower-agent-runtime-workflow is the observability backend for control stages.
-flower-agent-runtime-eventloop is the future durable-wait backend for approval
+flower-action-runtime-workflow is the observability backend for control stages.
+flower-action-runtime-eventloop is the future durable-wait backend for approval
 handling, callbacks, recovery, or other long-running behavior.
 Other graph/workflow engines may be added later only as executor adapters
 behind the same ActionRegistry, PolicyGate, ApprovalGate, TraceSink, and
@@ -553,7 +553,7 @@ Action: UPDATE_REPORT_SECTION_AFTER_APPROVAL
 In production, raw tool calls that mutate state should usually be converted
 into `ActionProposal` and pass through policy.
 
-`flower-mcp-proxy` can own MCP protocol/tool exposure later. The agent runtime
+`flower-mcp-proxy` can own MCP protocol/tool exposure later. The action runtime
 should own the business action decision.
 
 ## Audit Model
@@ -618,13 +618,13 @@ If audit is required and AuditSink is missing, deny execution.
 
 ## Relationship To `flower-ai-harness`
 
-The agent runtime may use `flower-ai-harness` for planning or analysis:
+The action runtime may use `flower-ai-harness` for planning or analysis:
 
 ```text
 User asks for work
--> agent runtime starts run
+-> action runtime starts run
 -> ai-harness produces structured proposal
--> agent runtime validates proposal as ActionProposal
+-> action runtime validates proposal as ActionProposal
 -> policy gate decides
 -> selected backend executes approved action
    - Flower when durable workflow execution is needed
@@ -641,7 +641,7 @@ DomainActionExecutor
 MCP allowlist
 ```
 
-Those belong to `flower-agent-runtime` or the host application.
+Those belong to `flower-action-runtime` or the host application.
 
 ## ArchDox Validation First
 
@@ -727,4 +727,4 @@ replayable
 testable
 ```
 
-That is the control-system view of `flower-agent-runtime`.
+That is the control-system view of `flower-action-runtime`.

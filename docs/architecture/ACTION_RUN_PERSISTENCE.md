@@ -26,7 +26,7 @@ target:   ActionRun (persisted)              -> stages update it -> survives res
 ```
 
 `ActionRun` is the **business source of truth** for execution state. It is
-engine-neutral and belongs in `flower-agent-runtime-core`. Every backend (direct,
+engine-neutral and belongs in `flower-action-runtime-core`. Every backend (direct,
 workflow, future event-loop) reads and writes the same `ActionRun`.
 
 ## Relationship To Existing Contracts
@@ -279,13 +279,13 @@ hosts the token to build on. This is the durable form of the existing
 ## Module Placement And Migration Path
 
 ```text
-flower-agent-runtime-core
+flower-action-runtime-core
   ActionRun, ActionRunStatus, RunStore (SPI), InMemoryRunStore
-flower-agent-runtime-workflow
+flower-action-runtime-workflow
   drives stages, updates ActionRun; may add Flower checkpoint later
-future flower-agent-runtime-eventloop
+future flower-action-runtime-eventloop
   same ActionRun; durable await + resume from findResumable
-future flower-agent-runtime-persistence-jdbc
+future flower-action-runtime-persistence-jdbc
   JdbcRunStore + schema, opt-in, host-applied SQL
 ```
 

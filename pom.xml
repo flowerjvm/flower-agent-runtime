@@ -4,21 +4,21 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-    <artifactId>flower-agent-runtime-parent</artifactId>
+    <groupId>io.github.parkkevinsb.flower.action.runtime</groupId>
+    <artifactId>flower-action-runtime-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>flower-agent-runtime Parent</name>
+    <name>flower-action-runtime Parent</name>
     <description>Controlled action runtime for AI-assisted business systems.</description>
     <inceptionYear>2026</inceptionYear>
 
     <modules>
-        <module>flower-agent-runtime-core</module>
-        <module>flower-agent-runtime-workflow</module>
-        <module>flower-agent-runtime-persistence-jdbc</module>
-        <module>flower-agent-runtime-eventloop</module>
-        <module>flower-agent-runtime-integration-test</module>
+        <module>flower-action-runtime-core</module>
+        <module>flower-action-runtime-workflow</module>
+        <module>flower-action-runtime-persistence-jdbc</module>
+        <module>flower-action-runtime-eventloop</module>
+        <module>flower-action-runtime-integration-test</module>
     </modules>
 
     <properties>
@@ -42,23 +42,23 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-                <artifactId>flower-agent-runtime-core</artifactId>
+                <groupId>io.github.parkkevinsb.flower.action.runtime</groupId>
+                <artifactId>flower-action-runtime-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-                <artifactId>flower-agent-runtime-workflow</artifactId>
+                <groupId>io.github.parkkevinsb.flower.action.runtime</groupId>
+                <artifactId>flower-action-runtime-workflow</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-                <artifactId>flower-agent-runtime-persistence-jdbc</artifactId>
+                <groupId>io.github.parkkevinsb.flower.action.runtime</groupId>
+                <artifactId>flower-action-runtime-persistence-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.parkkevinsb.flower.agent.runtime</groupId>
-                <artifactId>flower-agent-runtime-eventloop</artifactId>
+                <groupId>io.github.parkkevinsb.flower.action.runtime</groupId>
+                <artifactId>flower-action-runtime-eventloop</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -20,7 +20,7 @@ D-like feedback = instability detection from worsening error trend.
 ```
 
 This can become a practical feedback/control layer around
-`flower-agent-runtime`. It may wrap or observe `flower-ai-harness`, but it
+`flower-action-runtime`. It may wrap or observe `flower-ai-harness`, but it
 should not turn the harness itself into a broad governance engine.
 
 This is a research and design note, not a public API commitment. The first
@@ -1350,7 +1350,7 @@ bounded retry/refine for one AI task
 `flower-ai-harness` should not own long-term business behavior control,
 approval escalation, persistent correction memory, or runtime governance.
 
-### flower-agent-runtime
+### flower-action-runtime
 
 Owns business action control:
 
@@ -1373,7 +1373,7 @@ audit and replay correlation
 optional control wrapper selection
 ```
 
-### flower-agent-runtime-control
+### flower-action-runtime-control
 
 Future optional module.
 
@@ -1461,7 +1461,7 @@ More precisely:
 
 ```text
 flower-ai-harness may perform immediate task-level repair.
-flower-agent-runtime-control owns reusable feedback/control policy.
+flower-action-runtime-control owns reusable feedback/control policy.
 host applications define what an error means.
 ```
 
@@ -1539,7 +1539,7 @@ host domain detector
 flower-ai-harness
   -> uses P-like immediate correction for one AI task
 
-flower-agent-runtime
+flower-action-runtime
   -> stores I-like accumulated signals
   -> runs D-like governance checks
   -> owns action-level escalation and safe stop
@@ -1562,7 +1562,7 @@ flower-ai-harness-core
   - P-like severity-to-intervention policy
   - attempt-level control events
 
-flower-agent-runtime-core
+flower-action-runtime-core
   - AiControlError
   - ControlEvent
   - ControlProfile
@@ -1570,7 +1570,7 @@ flower-agent-runtime-core
   - divergence guard / circuit-breaker candidate
   - action-level escalation events
 
-flower-agent-runtime-test
+flower-action-runtime-test
   - fake error detector
   - synthetic control events
   - control policy tests
@@ -1600,7 +1600,7 @@ token/cost trace
 attempt-level lifecycle
 ```
 
-`flower-agent-runtime` should apply higher-level control by wrapping harness
+`flower-action-runtime` should apply higher-level control by wrapping harness
 execution:
 
 ```text

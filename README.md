@@ -1,15 +1,16 @@
-# flower-agent-runtime
+# flower-action-runtime
 
-Former working names: `flower-agent-orchestration`, `flower-action-runtime`.
+Former working names: `flower-agent-orchestration`, `flower-agent-runtime`.
 
 This folder captures the direction for a possible future Flower ecosystem
-project. The public name should be `flower-agent-runtime` because that is the
-language users and teams will understand. Internally, the design remains
-action-first: planners or users propose actions, policies decide, and approved
-execution runs through an engine-neutral `ActionPipeline`. The direct runtime is
-the reference backend, `flower-agent-runtime-workflow` makes the same control
-stages observable through Flower Flow/Step, and durable waits are left to a
-future event-loop backend.
+project. The public name is `flower-action-runtime` because the runtime controls
+actions, not agents. UI, REST, batch, MCP, and AI planners may all propose
+actions, but they must pass through the same action boundary. Internally, the
+design remains action-first: proposers submit actions, policies decide, and
+approved execution runs through an engine-neutral `ActionPipeline`. The direct
+runtime is the reference backend, `flower-action-runtime-workflow` makes the
+same control stages observable through Flower Flow/Step, and durable waits are
+left to a future event-loop backend.
 
 For the broader ecosystem vision, see
 [FLOWER_ECOSYSTEM_VISION.md](docs/vision/FLOWER_ECOSYSTEM_VISION.md).
@@ -24,8 +25,8 @@ For the controlled action state machine, risk classification, failure policy,
 audit model, and industrial equipment-control mapping, see
 [CONTROLLED_ACTION_STATE_MACHINE.md](docs/architecture/CONTROLLED_ACTION_STATE_MACHINE.md).
 
-For the future Spring-style `@AgentWorker` / `@Action` usability layer, see
-[AGENT_WORKER_ANNOTATION_MODEL.md](docs/architecture/AGENT_WORKER_ANNOTATION_MODEL.md).
+For the future Spring-style `@ActionWorker` / `@Action` usability layer, see
+[WORKER_ANNOTATION_MODEL.md](docs/architecture/WORKER_ANNOTATION_MODEL.md).
 
 For the Flower Flow default backend and optional future LangGraph4j adapter
 strategy, see
@@ -43,7 +44,7 @@ For the intended Maven multi-module structure and naming decision to use
 
 ## One Sentence
 
-`flower-agent-runtime` is a controlled action runtime for AI-assisted business
+`flower-action-runtime` is a controlled action runtime for AI-assisted business
 systems.
 
 In short:
@@ -66,9 +67,9 @@ The starting question is:
 May this business action be executed here, now, by this actor, on this data?
 ```
 
-This makes the project a policy-first agent runtime, not a generic agent graph
-framework. The controlled unit is the action, even though the product name uses
-agent.
+This makes the project a policy-first action runtime, not a generic agent graph
+framework. The controlled unit is the action. Agents are only one possible
+source of proposals.
 
 The deeper Flower identity is narrower than "AI framework":
 
@@ -87,7 +88,7 @@ controlled action lifecycle, and AI/tool runners perform bounded work.
 The intended direction is:
 
 ```text
-Controlled Agent Runtime for AI-driven business actions.
+Controlled Action Runtime for AI-driven business actions.
 ```
 
 Supporting ideas:
@@ -111,13 +112,13 @@ execution.
 
 ## Runtime Stack
 
-`flower-agent-runtime` should be understood as the center of a controlled agent
-runtime stack.
+`flower-action-runtime` should be understood as the center of a controlled
+action runtime stack.
 
 ```text
 User request
--> flower-agent-runtime
-   - AgentProfile
+-> flower-action-runtime
+   - ActorProfile / WorkerProfile
    - plan / action proposal
    - PolicyGate
    - RiskEvaluator
@@ -139,9 +140,9 @@ uses -> AI execution backend
 controlled execution backends
         -> DefaultActionRuntime
            - synchronous reference implementation
-        -> flower-agent-runtime-workflow
+        -> flower-action-runtime-workflow
            - observable control stages through Flower Flow/Step
-        -> future flower-agent-runtime-eventloop
+        -> future flower-action-runtime-eventloop
            - durable waits
            - approval resume
            - AI/tool callback waits
@@ -155,7 +156,7 @@ may pass through -> flower-mcp-proxy
                   - output filtering
                   - tool audit
 
-optional control layer -> flower-agent-runtime-control
+optional control layer -> flower-action-runtime-control
                           - sensors / error signals
                           - correction decisions
                           - repeated error aggregation
@@ -163,7 +164,7 @@ optional control layer -> flower-agent-runtime-control
                           - control events
 ```
 
-The call direction is not always a simple top-down stack. The agent runtime may
+The call direction is not always a simple top-down stack. The action runtime may
 use `flower-ai-harness`, Spring AI agent utilities, a direct Spring AI
 `ChatClient`, or a host-provided AI executor to produce a planner proposal. It
 may drive execution through the direct runtime, the workflow observability
@@ -173,7 +174,7 @@ access through a future `flower-mcp-proxy`.
 The responsibility model is:
 
 ```text
-flower-agent-runtime = central control layer
+flower-action-runtime = central control layer
 ActionPipeline       = semantic source of truth
 workflow backend     = Flower Flow/Step observability layer
 eventloop backend    = future durable-wait layer
@@ -204,7 +205,7 @@ Those systems usually ask:
 What agents, tools, memory, and graph should solve this task?
 ```
 
-`flower-agent-runtime` should ask:
+`flower-action-runtime` should ask:
 
 ```text
 What registered business action is being requested?
@@ -226,12 +227,12 @@ flower-ai-harness
   = reliable lifecycle for one AI task.
   = owns prompt, model call, validation, retry/refine, fallback, run trace.
 
-flower-agent-runtime
-  = controlled agent runtime for AI-driven business actions.
+flower-action-runtime
+  = controlled action runtime for AI-driven business actions.
   = owns action registry, policy gate, dry-run, approval boundary,
     idempotency contract, audit events, and controlled executor.
 
-flower-agent-runtime-control
+flower-action-runtime-control
   = optional feedback/control layer after host validation.
   = owns sensors, error signals, correction decisions, repeated-error
     aggregation, divergence guards, and circuit-breaker style interventions.
@@ -241,13 +242,13 @@ host application
     permission data, and final business decisions.
 ```
 
-`flower-agent-runtime` must not be added to `flower-ai-harness`.
+`flower-action-runtime` must not be added to `flower-ai-harness`.
 
 `flower-ai-harness` makes one AI task reliable.
 
-`flower-agent-runtime` controls whether a proposed business action can execute.
+`flower-action-runtime` controls whether a proposed business action can execute.
 
-`flower-agent-runtime-control` may later control how strongly the runtime
+`flower-action-runtime-control` may later control how strongly the runtime
 intervenes when repeated errors, worsening trends, or unsafe loops appear. It
 should not be implemented as part of `flower-ai-harness`.
 
@@ -312,12 +313,12 @@ workflow state management
 The harness validates model interaction. It does not decide whether a business
 action is allowed.
 
-### flower-agent-runtime
+### flower-action-runtime
 
 Owns:
 
 ```text
-AgentProfile
+ActorProfile / WorkerProfile
 ActionDefinition
 ActionRegistry
 ActionProposal
@@ -347,7 +348,7 @@ The key rule:
 The runtime decides what an agent is allowed to do.
 ```
 
-### flower-agent-runtime-control
+### flower-action-runtime-control
 
 Future optional module.
 
@@ -405,7 +406,7 @@ business approval workflows
 LLM prompt orchestration
 ```
 
-The MCP proxy should begin as a secure gateway/plugin around the agent runtime,
+The MCP proxy should begin as a secure gateway/plugin around the action runtime,
 not as an independent platform.
 
 ## Action-First Model
@@ -413,7 +414,7 @@ not as an independent platform.
 The unit of control is not the agent. The unit of control is the action.
 
 ```text
-Agent / User / System
+AI planner / User / System
 -> ActionProposal
 -> ActionRegistry
 -> PolicyDecision
@@ -426,17 +427,17 @@ Agent / User / System
 
 An action should be a business capability, not a raw tool.
 
-Long term, `flower-agent-runtime` may expose a Spring-style annotation adapter
-such as `@AgentWorker` and `@Action` so users can declare workers simply while
+Long term, `flower-action-runtime` may expose a Spring-style annotation adapter
+such as `@ActionWorker` and `@Action` so users can declare workers simply while
 the runtime still performs registry, policy, approval, audit, trace, and
 controlled execution behind the scenes. That direction is documented in
-[AGENT_WORKER_ANNOTATION_MODEL.md](docs/architecture/AGENT_WORKER_ANNOTATION_MODEL.md). The
+[WORKER_ANNOTATION_MODEL.md](docs/architecture/WORKER_ANNOTATION_MODEL.md). The
 explicit action model should be validated first; annotation convenience comes
 later.
 
-The intended split is: `flower-agent-runtime-core` owns explicit runtime
-contracts, while `flower-agent-runtime-spring` and
-`flower-agent-runtime-spring-boot-starter` own annotation scanning, proxy bean
+The intended split is: `flower-action-runtime-core` owns explicit runtime
+contracts, while `flower-action-runtime-spring` and
+`flower-action-runtime-spring-boot-starter` own annotation scanning, proxy bean
 creation, and automatic mapping from user declarations to runtime definitions.
 
 Good examples:
@@ -481,7 +482,7 @@ write small domain action adapters
 The runtime should translate those declarations into explicit control objects:
 
 ```text
-@AgentWorker / @Action
+@ActionWorker / @Action
 -> ActionDefinition
 -> ActionRegistry
 -> ActionProposal
@@ -521,7 +522,7 @@ ExecutionContext
   - run id
   - trace id
   - agent id
-  - agent profile version
+  - worker profile version
   - roles
   - metadata
 
@@ -664,7 +665,7 @@ MCP is a connection standard for exposing tools and context to AI
 applications. It is useful, but raw MCP tool exposure is too permissive for
 many business systems.
 
-`flower-agent-runtime` should not replace MCP.
+`flower-action-runtime` should not replace MCP.
 
 The useful future module is:
 
@@ -675,7 +676,7 @@ flower-mcp-proxy
 Its role:
 
 ```text
-Agent / AI application
+AI application / MCP client
 -> MCP tool request
 -> Flower MCP proxy
 -> schema validation
@@ -698,18 +699,18 @@ The likely dependency direction is:
 
 ```text
 flower-mcp-proxy
-  depends on flower-agent-runtime contracts
+  depends on flower-action-runtime contracts
   depends on flower core execution primitives when it submits workflows
   may use flower-ai-harness only when tool access itself requires model calls
 ```
 
-## Agent Runtime vs MCP Proxy
+## Action Runtime vs MCP Proxy
 
-`flower-agent-runtime` and `flower-mcp-proxy` may both mention allowlists,
+`flower-action-runtime` and `flower-mcp-proxy` may both mention allowlists,
 read/write restrictions, policy, and audit. They are still different layers.
 
 ```text
-flower-agent-runtime
+flower-action-runtime
   = controlled agent/action execution runtime
   = asks: may this business action execute?
 
@@ -726,7 +727,7 @@ Without MCP:
 
 ```text
 Chat UI / REST API / system automation
--> flower-agent-runtime
+-> flower-action-runtime
 -> Flower workflow
 -> Domain service
 ```
@@ -736,7 +737,7 @@ With MCP:
 ```text
 MCP client / AI application
 -> flower-mcp-proxy
--> flower-agent-runtime
+-> flower-action-runtime
 -> Flower workflow
 -> Domain service or MCP server
 ```
@@ -777,7 +778,7 @@ ActionProposal:
     content: "No issue observed."
 ```
 
-`flower-agent-runtime` checks the business execution boundary:
+`flower-action-runtime` checks the business execution boundary:
 
 ```text
 Is this user/agent allowed to update this report?
@@ -795,19 +796,19 @@ The overlap is intentional but scoped:
 MCP proxy allowlist
   = which MCP tools are exposed or accepted.
 
-Agent runtime ActionRegistry
+Action runtime ActionRegistry
   = which business actions can execute.
 
 MCP proxy read/write restriction
   = tool surface restriction.
 
-Agent runtime PolicyGate
+Action runtime PolicyGate
   = business state, permission, risk, approval, and execution decision.
 
 MCP proxy audit
   = MCP request/response audit.
 
-Agent runtime audit
+Action runtime audit
   = business action proposal/decision/execution audit.
 ```
 
@@ -864,7 +865,7 @@ Submit child flows through worker.submit(...).
 Persist child run ids and wait through status/event checks.
 Do not put long blocking model calls directly inside ordinary steps.
 Use flower-ai-harness for model calls.
-Use flower-agent-runtime for business action policy, approval, and audit.
+Use flower-action-runtime for business action policy, approval, and audit.
 Split actions when policy, approval, cost, user control, or audit boundaries differ.
 ```
 
@@ -915,7 +916,7 @@ flower-check
   = CLI or Gradle plugin that scans a project for Flower anti-patterns.
 
 flower-test-support
-  = test helpers for Flow, Step, recovery, event, and agent-runtime patterns.
+  = test helpers for Flow, Step, recovery, event, and action-runtime patterns.
 
 CI integration
   = runs flower-check and tests automatically on push / pull request.
@@ -1009,7 +1010,7 @@ flower-dev-mcp
   - teaches AI coding agents Flower concepts
   - recommends Flow / Step / Worker patterns
   - generates correct skeletons
-  - explains agent-runtime and ai-harness boundaries
+  - explains action-runtime and ai-harness boundaries
 
 flower-check
   - detects known Flower anti-patterns
@@ -1106,7 +1107,7 @@ Governance
   = domain-neutral enough to extract
 ```
 
-The host application owns the business recipe. `flower-agent-runtime` owns the
+The host application owns the business recipe. `flower-action-runtime` owns the
 execution envelope and governance contracts.
 
 ## ArchDox Validation
@@ -1219,7 +1220,7 @@ Early development may live in one workspace or monorepo shape:
 ```text
 flower-core
 flower-ai-harness
-flower-agent-runtime
+flower-action-runtime
 flower-mcp-proxy
 examples / host validations
 ```
@@ -1244,10 +1245,10 @@ Status:
 ```text
 Concept defined.
 Maven parent project scaffolded.
-flower-agent-runtime-core created.
-flower-agent-runtime-workflow created as the first workflow backend.
-Old names flower-agent-orchestration and flower-action-runtime replaced by
-flower-agent-runtime.
+flower-action-runtime-core created.
+flower-action-runtime-workflow created as the first workflow backend.
+Old names flower-agent-orchestration and flower-agent-runtime replaced by
+flower-action-runtime to keep the action boundary explicit.
 Generic implementation deferred.
 ArchDox worker runtime validation in progress.
 MCP proxy is a future optional module, not Flower core.
@@ -1257,11 +1258,11 @@ ActionPipeline is the semantic source of truth. The workflow backend is for
 observability, and the future event-loop backend is for durable waits.
 LangGraph4j is only a possible future adapter behind the same
 action/policy/audit boundary.
-flower-agent-runtime-control is optional and deferred until a host application
+flower-action-runtime-control is optional and deferred until a host application
 proves repeated feedback/control patterns.
 ```
 
-Current `flower-agent-runtime-core` scope:
+Current `flower-action-runtime-core` scope:
 
 ```text
 ActionProposal
@@ -1282,9 +1283,9 @@ DefaultActionRuntime
 
 The core module intentionally has no dependency on Flower core, Spring, MCP,
 JSON, model providers, or AI frameworks. Flower execution belongs in
-`flower-agent-runtime-workflow`.
+`flower-action-runtime-workflow`.
 
-Current `flower-agent-runtime-workflow` scope:
+Current `flower-action-runtime-workflow` scope:
 
 ```text
 ActionProposal -> Flower Flow

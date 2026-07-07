@@ -137,7 +137,7 @@ The AI version has the same shape:
 
 ```text
 user / Slack / business system
--> flower-agent-runtime
+-> flower-action-runtime
 -> AI runner / tool runner / domain executor
 -> DB / GitHub / Jira / file system / internal API
 ```
@@ -149,7 +149,7 @@ TOS world                 AI world
 -----------------------   --------------------------------
 TOS                       user / Slack / business system
 work instruction          ActionRequest
-Flower runtime            flower-agent-runtime
+Flower runtime            flower-action-runtime
 execution task            AgentTask / ActionExecution
 equipment module          HermesRunner / CodexRunner / ClaudeRunner
 physical equipment        DB / GitHub / Jira / files / APIs
@@ -225,14 +225,14 @@ approval escalation rules
 
 ## flower-ai-harness Boundary
 
-`flower-ai-harness` and `flower-agent-runtime` should not blur together.
+`flower-ai-harness` and `flower-action-runtime` should not blur together.
 
 ```text
 flower-ai-harness
   = reliable lifecycle for one AI task
   = prompt, model call, schema validation, retry/refine, fallback, usage trace
 
-flower-agent-runtime
+flower-action-runtime
   = controlled business action runtime
   = registry, policy, approval, audit, idempotency, result guard, action lifecycle
 ```
@@ -264,7 +264,7 @@ They should also not make `flower-ai-harness` heavy.
 The clean placement is:
 
 ```text
-flower-agent-runtime-control
+flower-action-runtime-control
 ```
 
 This is optional and should be extracted only after host applications prove the
@@ -281,7 +281,7 @@ flower-ai-harness
   = one AI task execution:
     model call, schema validation, retry/refine, fallback
 
-flower-agent-runtime
+flower-action-runtime
   = business action execution envelope:
     ActionDefinition, PolicyGate, Approval, Audit, Idempotency, ResultGuard
     - core: engine-neutral ActionPipeline + contracts; DefaultActionRuntime is
@@ -291,7 +291,7 @@ flower-agent-runtime
     - eventloop backend (future, flower-eventloop): durable waiting for
       approval events, LLM/MCP/tool callbacks, timeouts, and resume
 
-flower-agent-runtime-control
+flower-action-runtime-control
   = optional feedback/control layer:
     sensors, error signals, correction decisions, error aggregation,
     divergence guards, circuit breakers, control events
@@ -315,7 +315,7 @@ D-like trend detection
 ```
 
 The first implementation should be inside a host validation project such as
-ArchDox or Agent-native-TOS. Extract `flower-agent-runtime-control` only after a
+ArchDox or Agent-native-TOS. Extract `flower-action-runtime-control` only after a
 small loop works repeatedly.
 
 ## What Flower Should Own

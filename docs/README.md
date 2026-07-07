@@ -1,4 +1,4 @@
-# flower-agent-runtime docs
+# flower-action-runtime docs
 
 Project documentation is grouped by maturity and purpose.
 
@@ -13,7 +13,7 @@ Project documentation is grouped by maturity and purpose.
 - [Controlled Action State Machine](architecture/CONTROLLED_ACTION_STATE_MACHINE.md)
 - [ActionRun Persistence Model](architecture/ACTION_RUN_PERSISTENCE.md)
 - [Execution Backend Strategy](architecture/EXECUTION_BACKEND_STRATEGY.md)
-- [Agent Worker Annotation Model](architecture/AGENT_WORKER_ANNOTATION_MODEL.md)
+- [Worker Annotation Model](architecture/WORKER_ANNOTATION_MODEL.md)
 - [Module Structure](architecture/MODULE_STRUCTURE.md)
 
 ## Research

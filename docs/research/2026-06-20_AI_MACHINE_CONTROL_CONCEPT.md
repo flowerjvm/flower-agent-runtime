@@ -1,9 +1,9 @@
-# Flower Agent Runtime - AI Machine Control Concept
+# Flower Action Runtime - AI Machine Control Concept
 
 Status: concept document.
 
 This document records the control philosophy for a future
-`flower-agent-runtime`. It is not an implementation contract yet. ArchDox is the
+`flower-action-runtime`. It is not an implementation contract yet. ArchDox is the
 validation host. Only patterns that survive real ArchDox workflows should be
 extracted into the shared runtime.
 
@@ -15,7 +15,7 @@ behavior. Like any uncertain machine, it must not be run open-loop. It is wrappe
 with control layers until the whole system behaves like a controllable business
 machine.
 
-The goal of `flower-agent-runtime` is not to make the model "trusted". The goal
+The goal of `flower-action-runtime` is not to make the model "trusted". The goal
 is to wrap the model and its proposed actions with enough control layers that
 the whole system behaves like a controllable business machine.
 
@@ -190,7 +190,7 @@ In this model:
 | Plant | Business system being changed |
 | Sensor | Trace, finding, state, usage, and evaluation feedback |
 
-`flower-agent-runtime` should therefore not be a graph engine and not an AI
+`flower-action-runtime` should therefore not be a graph engine and not an AI
 harness. It should be the safety-controlled action runtime that turns AI,
 user, or system proposals into permissioned, auditable, interruptible
 execution.
@@ -227,7 +227,7 @@ flowchart TD
     Model["Uncontrolled AI Machine<br/>LLM / stochastic output"]
     Sensors["Sensor & Feedback Layer<br/>JSON parse / validation errors / findings / traces / token usage"]
 
-    Runtime["Agent Runtime Control Layer<br/>action registry / policy gate / scope / quota"]
+    Runtime["Action Runtime Control Layer<br/>action registry / policy gate / scope / quota"]
     Approval["Human Approval Gate<br/>approve / reject / risk accept"]
     Cancel["Run Control Gate<br/>cancel before execution / stale check"]
     Executor["Action Executor Layer<br/>document generation / submit report / send mail / DB mutation"]
@@ -315,9 +315,9 @@ They do not execute domain actions. A harness may produce:
 But the harness must not directly mutate business data, generate documents,
 send mail, or approve itself.
 
-### Agent Runtime
+### Action Runtime
 
-Agent Runtime is the action execution boundary.
+Action Runtime is the action execution boundary.
 
 It owns:
 
@@ -403,7 +403,7 @@ In ArchDox, this includes:
 - UI approval screens
 
 These are not generic runtime concepts and should not be forced into
-`flower-agent-runtime`.
+`flower-action-runtime`.
 
 ## Sensors And Setpoints
 
@@ -602,7 +602,7 @@ sequenceDiagram
     participant U as User
     participant F as Flower Flow
     participant H as AI Harness
-    participant R as Agent Runtime
+    participant R as Action Runtime
     participant A as Human Approval
     participant E as Executor
     participant D as Domain/Agent
@@ -629,7 +629,7 @@ sequenceDiagram
 
 ## Extraction Boundary
 
-Likely generic `flower-agent-runtime` concepts:
+Likely generic `flower-action-runtime` concepts:
 
 - `ActionDefinition`
 - `ActionRegistry`
@@ -674,13 +674,13 @@ Host-specific concepts that should stay outside:
 
 ## Summary
 
-`flower-agent-runtime` should make AI usable as part of a controllable machine.
+`flower-action-runtime` should make AI usable as part of a controllable machine.
 
 ```text
 LLM
 + Harness Drive
 + Flower State Controller
-+ Agent Runtime Safety Controller
++ Action Runtime Safety Controller
 + Domain Executor
 + Feedback/Audit Sensors
 = Controlled AI Machine
