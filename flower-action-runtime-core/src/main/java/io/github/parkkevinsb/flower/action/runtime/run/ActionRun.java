@@ -15,6 +15,7 @@ public record ActionRun(
         String tenantId,
         String userId,
         String traceId,
+        Map<String, Object> contextMetadata,
         String actionId,
         String proposalId,
         String requesterId,
@@ -41,6 +42,7 @@ public record ActionRun(
         tenantId = normalize(tenantId);
         userId = normalize(userId);
         traceId = normalize(traceId);
+        contextMetadata = contextMetadata == null ? Map.of() : Map.copyOf(contextMetadata);
         actionId = normalize(actionId);
         proposalId = normalize(proposalId);
         requesterId = normalize(requesterId);
@@ -69,6 +71,7 @@ public record ActionRun(
                 .tenantId(context.tenantId())
                 .userId(context.userId())
                 .traceId(context.traceId())
+                .contextMetadata(context.metadata())
                 .actionId(proposal.actionId())
                 .proposalId(proposal.proposalId())
                 .requesterId(proposal.requesterId())
@@ -95,6 +98,7 @@ public record ActionRun(
                 .tenantId(tenantId)
                 .userId(userId)
                 .traceId(traceId)
+                .contextMetadata(contextMetadata)
                 .actionId(actionId)
                 .proposalId(proposalId)
                 .requesterId(requesterId)
@@ -126,6 +130,7 @@ public record ActionRun(
         private String tenantId;
         private String userId;
         private String traceId;
+        private Map<String, Object> contextMetadata;
         private String actionId;
         private String proposalId;
         private String requesterId;
@@ -167,6 +172,11 @@ public record ActionRun(
 
         public Builder traceId(String traceId) {
             this.traceId = traceId;
+            return this;
+        }
+
+        public Builder contextMetadata(Map<String, Object> contextMetadata) {
+            this.contextMetadata = contextMetadata;
             return this;
         }
 
@@ -276,6 +286,7 @@ public record ActionRun(
                     tenantId,
                     userId,
                     traceId,
+                    contextMetadata,
                     actionId,
                     proposalId,
                     requesterId,

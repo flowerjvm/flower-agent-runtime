@@ -132,6 +132,8 @@ class ActionRunLifecycleTest {
 
         ActionRun run = stored(runStore, context);
         assertThat(result.status()).isEqualTo(ActionExecutionStatus.PENDING_APPROVAL);
+        assertThat(result.output()).containsEntry("runId", context.runId());
+        assertThat(result.output()).containsKey("approvalId");
         assertThat(run.status()).isEqualTo(ActionRunStatus.WAITING_APPROVAL);
         assertThat(run.approvalId()).isNotBlank();
         assertThat(run.result()).isEqualTo(result);
@@ -149,7 +151,12 @@ class ActionRunLifecycleTest {
                 null,
                 null,
                 runStore);
-        ExecutionContext context = context("run-proposal-rationale");
+        ExecutionContext context = new ExecutionContext(
+                "tenant-1",
+                "user-1",
+                "run-proposal-rationale",
+                "run-proposal-rationale-trace",
+                Map.of("actor.roles", List.of("reviewer"), "officeId", "office-1"));
         ActionProposal proposal = new ActionProposal(
                 "proposal-rationale",
                 "UpdateReport",
@@ -168,6 +175,7 @@ class ActionRunLifecycleTest {
         assertThat(waiting.proposalReason()).isEqualTo(proposal.reason());
         assertThat(waiting.proposalConfidence()).isEqualTo(proposal.confidence());
         assertThat(waiting.proposalMetadata()).isEqualTo(proposal.metadata());
+        assertThat(waiting.contextMetadata()).isEqualTo(context.metadata());
 
         ActionExecutionResult resumed = runtime.resume(
                 context.runId(),
@@ -179,6 +187,7 @@ class ActionRunLifecycleTest {
         assertThat(executor.proposal().reason()).isEqualTo(proposal.reason());
         assertThat(executor.proposal().confidence()).isEqualTo(proposal.confidence());
         assertThat(executor.proposal().metadata()).isEqualTo(proposal.metadata());
+        assertThat(executor.context().executionContext().metadata()).isEqualTo(context.metadata());
     }
 
     @Test
@@ -280,6 +289,7 @@ class ActionRunLifecycleTest {
         private final ActionDefinition definition;
         private final ActionExecutionResult result;
         private ActionProposal proposal;
+        private ActionExecutionContext context;
 
         private ProposalCapturingExecutor(ActionDefinition definition, ActionExecutionResult result) {
             this.definition = definition;
@@ -293,12 +303,17 @@ class ActionRunLifecycleTest {
 
         @Override
         public ActionExecutionResult execute(ActionExecutionContext context) {
-            proposal = context.proposal();
+            this.proposal = context.proposal();
+            this.context = context;
             return result;
         }
 
         private ActionProposal proposal() {
             return proposal;
+        }
+
+        private ActionExecutionContext context() {
+            return context;
         }
     }
 }

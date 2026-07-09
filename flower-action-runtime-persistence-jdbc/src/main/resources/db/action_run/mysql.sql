@@ -3,6 +3,7 @@ CREATE TABLE action_run (
     tenant_id VARCHAR(128) NOT NULL,
     user_id VARCHAR(128) NOT NULL,
     trace_id VARCHAR(128) NOT NULL,
+    context_metadata_json LONGTEXT NOT NULL DEFAULT '{}',
     action_id VARCHAR(255) NOT NULL,
     proposal_id VARCHAR(128) NOT NULL,
     requester_id VARCHAR(128) NOT NULL,

@@ -158,6 +158,6 @@ public final class DefaultActionRuntime implements ResumableActionRuntime {
     }
 
     private static ExecutionContext contextFromRun(ActionRun run) {
-        return new ExecutionContext(run.tenantId(), run.userId(), run.runId(), run.traceId(), Map.of());
+        return new ExecutionContext(run.tenantId(), run.userId(), run.runId(), run.traceId(), run.contextMetadata());
     }
 }

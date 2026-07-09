@@ -417,6 +417,7 @@ class RuntimeParityTest {
     private static Map<String, Object> stripVolatile(Map<String, Object> payload) {
         Map<String, Object> copy = new LinkedHashMap<>(payload);
         copy.remove("approvalId");
+        copy.remove("runId");
         return copy;
     }
 

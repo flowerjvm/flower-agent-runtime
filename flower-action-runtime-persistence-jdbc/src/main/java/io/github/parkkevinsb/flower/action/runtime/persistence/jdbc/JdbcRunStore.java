@@ -33,6 +33,7 @@ public final class JdbcRunStore implements RunStore {
             "tenant_id",
             "user_id",
             "trace_id",
+            "context_metadata_json",
             "action_id",
             "proposal_id",
             "requester_id",
@@ -56,12 +57,13 @@ public final class JdbcRunStore implements RunStore {
             "created_at",
             "updated_at");
     private static final String INSERT_SQL = "INSERT INTO action_run (" + COLUMNS + ") VALUES ("
-            + "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_SQL = """
             UPDATE action_run
             SET tenant_id = ?,
                 user_id = ?,
                 trace_id = ?,
+                context_metadata_json = ?,
                 action_id = ?,
                 proposal_id = ?,
                 requester_id = ?,
@@ -201,7 +203,7 @@ public final class JdbcRunStore implements RunStore {
         int index = 1;
         statement.setString(index++, run.runId());
         index = bindMutableColumns(statement, index, run);
-        if (index != 27) {
+        if (index != 28) {
             throw new IllegalStateException("Unexpected insert bind count: " + index);
         }
     }
@@ -209,7 +211,7 @@ public final class JdbcRunStore implements RunStore {
     private void bindUpdate(PreparedStatement statement, ActionRun run) throws SQLException {
         int index = bindMutableColumns(statement, 1, run);
         statement.setString(index++, run.runId());
-        if (index != 27) {
+        if (index != 28) {
             throw new IllegalStateException("Unexpected update bind count: " + index);
         }
     }
@@ -218,6 +220,7 @@ public final class JdbcRunStore implements RunStore {
         statement.setString(index++, run.tenantId());
         statement.setString(index++, run.userId());
         statement.setString(index++, run.traceId());
+        statement.setString(index++, writeJson(run.contextMetadata()));
         statement.setString(index++, run.actionId());
         statement.setString(index++, run.proposalId());
         statement.setString(index++, run.requesterId());
@@ -250,6 +253,7 @@ public final class JdbcRunStore implements RunStore {
                 .tenantId(resultSet.getString("tenant_id"))
                 .userId(resultSet.getString("user_id"))
                 .traceId(resultSet.getString("trace_id"))
+                .contextMetadata(readMap(resultSet.getString("context_metadata_json")))
                 .actionId(resultSet.getString("action_id"))
                 .proposalId(resultSet.getString("proposal_id"))
                 .requesterId(resultSet.getString("requester_id"))

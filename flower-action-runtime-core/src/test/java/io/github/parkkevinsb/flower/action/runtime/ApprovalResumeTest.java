@@ -46,6 +46,8 @@ class ApprovalResumeTest {
 
         ActionRun completed = runStore.find(context.runId()).orElseThrow();
         assertThat(parked.status()).isEqualTo(ActionExecutionStatus.PENDING_APPROVAL);
+        assertThat(parked.output()).containsEntry("runId", context.runId());
+        assertThat(parked.output()).containsEntry("approvalId", waiting.approvalId());
         assertThat(waiting.status()).isEqualTo(ActionRunStatus.WAITING_APPROVAL);
         assertThat(resumed.status()).isEqualTo(ActionExecutionStatus.SUCCEEDED);
         assertThat(completed.status()).isEqualTo(ActionRunStatus.SUCCEEDED);

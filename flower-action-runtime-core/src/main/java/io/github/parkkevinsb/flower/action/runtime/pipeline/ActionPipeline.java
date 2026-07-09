@@ -290,7 +290,9 @@ public final class ActionPipeline {
                     .requestApproval(session.proposal(), session.definition(), session.context(), decision);
             session.result(ActionExecutionResult.pendingApproval(
                     decision.reason(),
-                    Map.of("approvalId", approval.approvalId())));
+                    Map.of(
+                            "approvalId", approval.approvalId(),
+                            "runId", session.run().runId())));
             session.updateRun(run -> run.toBuilder()
                     .status(ActionRunStatus.WAITING_APPROVAL)
                     .approvalId(approval.approvalId())

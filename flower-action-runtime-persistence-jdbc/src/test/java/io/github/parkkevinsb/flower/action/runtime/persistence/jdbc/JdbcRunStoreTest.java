@@ -288,6 +288,7 @@ class JdbcRunStoreTest {
                 .tenantId("tenant-1")
                 .userId("user-1")
                 .traceId(runId + "-trace")
+                .contextMetadata(Map.of("actor.roles", List.of("reviewer"), "officeId", "office-1"))
                 .actionId("CreateReport")
                 .proposalId(runId + "-proposal")
                 .requesterId("requester-1")
@@ -339,6 +340,7 @@ class JdbcRunStoreTest {
         assertThat(actual.tenantId()).isEqualTo(expected.tenantId());
         assertThat(actual.userId()).isEqualTo(expected.userId());
         assertThat(actual.traceId()).isEqualTo(expected.traceId());
+        assertThat(actual.contextMetadata()).isEqualTo(expected.contextMetadata());
         assertThat(actual.actionId()).isEqualTo(expected.actionId());
         assertThat(actual.proposalId()).isEqualTo(expected.proposalId());
         assertThat(actual.requesterId()).isEqualTo(expected.requesterId());

@@ -87,7 +87,7 @@ ActionExecutionResult result = runtime.handle(
 
 switch (result.status()) {
     case SUCCEEDED         -> reply("Created " + result.output().get("reportId"));
-    case PENDING_APPROVAL  -> reply("Waiting for approval " + result.output().get("approvalId"));
+    case PENDING_APPROVAL  -> reply("Waiting for approval for run " + result.output().get("runId"));
     case DENIED            -> reply("Not allowed: " + result.message());
     case VALIDATION_FAILED -> reply("Bad input: " + result.message());
     case FAILED            -> reply("Failed: " + result.message());
@@ -148,7 +148,7 @@ And the objects that carry a request through those layers:
 
 ```text
 ActionProposal        who wants what, with which input, why, how confident
-ExecutionContext      whose execution: tenant, user, runId, traceId
+ExecutionContext      whose execution: tenant, user, runId, traceId, metadata
 ActionDefinition      what an action IS: effect, risk, allowed origins, approval default
 ActionExecutor        the only way the runtime touches your domain code
 ActionExecutionResult the explicit outcome every caller must branch on
@@ -268,10 +268,11 @@ var result = runtime.handle(aiPlannerProposal, context);
 // result.status() == PENDING_APPROVAL for an AI-planner write
 
 String approvalId = (String) result.output().get("approvalId");
+String runId = (String) result.output().get("runId");
 
 // later, from an approval UI, Slack button, or admin endpoint:
 var approved = runtime.resume(
-        context.runId(),
+        runId,
         ApprovalDecision.approved(approvalId, "manager-42"));
 // the action executes now, through the same validate -> execute -> record path
 ```

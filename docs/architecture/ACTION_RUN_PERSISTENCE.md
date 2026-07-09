@@ -52,6 +52,7 @@ ActionRun
   tenantId       execution identity (from ExecutionContext)
   userId
   traceId
+  contextMetadata host-supplied execution metadata needed after resume
   actionId       which registered action
   proposalId     originating proposal
   requesterId    who/what proposed (user, planner, system, MCP, scheduler)
@@ -70,9 +71,9 @@ ActionRun
   updatedAt
 ```
 
-`policyDecision`, `result`, and `input` are stored as compact serializable data.
-Core stays JSON-free: it holds typed fields and `Map<String,Object>`; a JDBC
-`RunStore` implementation does the serialization.
+`policyDecision`, `result`, `input`, and `contextMetadata` are stored as compact
+serializable data. Core stays JSON-free: it holds typed fields and
+`Map<String,Object>`; a JDBC `RunStore` implementation does the serialization.
 
 ### Persisted vs re-injected on resume
 
@@ -81,7 +82,7 @@ session accordingly:
 
 ```text
 Persisted in ActionRun (the durable spine):
-  runId, ids, actionId, proposalId, requester, origin, input,
+  runId, ids, context metadata, actionId, proposalId, requester, origin, input,
   duplicateKey, status, currentStage, policyDecision summary,
   approvalId, dueAt, attemptToken, result, failureReason, timestamps
 
@@ -216,7 +217,7 @@ Mapped onto the current `ActionPipeline` stages. "persist" = a `RunStore` write.
 | reserve-duplicate | set duplicateKey. ACCEPT: continue. RETURN_EXISTING: terminal, result mirrors existing — **persist**. REJECT: status=DENIED, failureReason="duplicate running" — **persist** |
 | resolve-action | currentStage=resolve-action; status=VALIDATING. Unregistered: status=DENIED — **persist** |
 | validate-input | currentStage=validate-input. Invalid: status=DENIED, failureReason=violations — **persist** |
-| evaluate-policy | store policyDecision. Approval: status=WAITING_APPROVAL, approvalId, dueAt — **persist**. Deny: status=DENIED — **persist**. Allow: status=POLICY_EVALUATED |
+| evaluate-policy | store policyDecision. Approval: status=WAITING_APPROVAL, approvalId, dueAt, result output with runId + approvalId — **persist**. Deny: status=DENIED — **persist**. Allow: status=POLICY_EVALUATED |
 | execute-action | status=RUNNING, write attemptToken — **persist (before side effect)**. Success: result, status=SUCCEEDED. Failure: failureReason, status=FAILED |
 | record-result (finalize) | duplicate complete/release; ensure terminal status + updatedAt — **persist** |
 | failRuntime | if not terminal: status=RUNTIME_FAILED, failureReason — **persist (best-effort)** |
