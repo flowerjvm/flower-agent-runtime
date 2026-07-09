@@ -8,6 +8,11 @@ import java.util.Set;
 /**
  * Declares an action the runtime is allowed to execute through a controlled pipeline.
  *
+ * <p>{@code effect}, {@code riskLevel}, {@code allowedOrigins}, {@code dryRunSupported}, and
+ * {@code approvalRequiredByDefault} are read by the core pipeline or default policy. {@code auditRequired} is a
+ * contract for host/runtime configuration: core emits audit events for every action, while production hosts should
+ * provide a durable {@code AuditSink} for actions that require audit retention.</p>
+ *
  * <p>{@code requiredPermissions} is a policy input contract. The default core policy gate does not enforce it because
  * core has no actor permission source. Host-specific or external {@code PolicyGate} implementations should compare it
  * with trusted actor permissions supplied by the host application.</p>

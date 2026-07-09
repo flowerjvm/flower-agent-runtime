@@ -99,6 +99,47 @@ class ApprovalResumeTest {
     }
 
     @Test
+    void approvedRunCachesDuplicateResultAfterResume() {
+        InMemoryRunStore runStore = new InMemoryRunStore();
+        CountingExecutor executor = new CountingExecutor(writeAction("UpdateReport"),
+                ActionExecutionResult.succeeded(Map.of("updated", true)));
+        DefaultActionRuntime runtime = runtime(executor, ActionInputValidator.allowAll(), runStore, null);
+        ExecutionContext context = context("run-duplicate-after-approval");
+        ActionProposal proposal = new ActionProposal(
+                "proposal-duplicate-after-approval",
+                "UpdateReport",
+                ActionOrigin.AI_PLANNER,
+                "planner",
+                "update",
+                0.9d,
+                Map.of("siteId", 1),
+                "same-approval-key",
+                Map.of());
+
+        runtime.handle(proposal, context);
+        ActionRun waiting = runStore.find(context.runId()).orElseThrow();
+        ActionExecutionResult approved = runtime.resume(
+                context.runId(),
+                ApprovalDecision.approved(waiting.approvalId(), "admin"));
+        ActionExecutionResult duplicate = runtime.handle(
+                new ActionProposal(
+                        "proposal-duplicate-after-approval-2",
+                        "UpdateReport",
+                        ActionOrigin.AI_PLANNER,
+                        "planner",
+                        "retry",
+                        0.9d,
+                        Map.of("siteId", 1),
+                        "same-approval-key",
+                        Map.of()),
+                context("run-duplicate-after-approval-retry"));
+
+        assertThat(approved.status()).isEqualTo(ActionExecutionStatus.SUCCEEDED);
+        assertThat(duplicate).isEqualTo(approved);
+        assertThat(executor.calls()).isEqualTo(1);
+    }
+
+    @Test
     void guardsUnknownNonWaitingAndMismatchedApprovalRuns() {
         InMemoryRunStore runStore = new InMemoryRunStore();
         CountingExecutor executor = new CountingExecutor(writeAction("UpdateReport"),

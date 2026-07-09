@@ -281,7 +281,7 @@ class RuntimeParityTest {
     }
 
     @Test
-    void pendingApprovalReleasesDuplicateReservationInsteadOfCachingResult() {
+    void pendingApprovalKeepsDuplicateReservationOpen() {
         TrackingDuplicateActionPolicy directDuplicate = new TrackingDuplicateActionPolicy();
         ActionRuntime direct = new DefaultActionRuntime(
                 registryOf(writeAction("UpdateReport", Set.of(ActionOrigin.AI_PLANNER)),
@@ -302,8 +302,8 @@ class RuntimeParityTest {
         assertThat(flow.handle(proposal, context).status()).isEqualTo(ActionExecutionStatus.PENDING_APPROVAL);
         assertThat(directDuplicate.completeCalls()).isZero();
         assertThat(flowDuplicate.completeCalls()).isZero();
-        assertThat(directDuplicate.releaseCalls()).isEqualTo(1);
-        assertThat(flowDuplicate.releaseCalls()).isEqualTo(1);
+        assertThat(directDuplicate.releaseCalls()).isZero();
+        assertThat(flowDuplicate.releaseCalls()).isZero();
     }
 
     @Test
@@ -311,7 +311,7 @@ class RuntimeParityTest {
         PolicyGate dryRun = (proposal, definition, context) ->
                 new PolicyDecision(PolicyDecisionType.REQUIRE_DRY_RUN, "dry run first", Map.of());
         assertParity(
-                () -> registryOf(writeAction("CreateReport", Set.of(ActionOrigin.USER)),
+                () -> registryOf(dryRunnableWriteAction("CreateReport", Set.of(ActionOrigin.USER)),
                         ActionExecutionResult.succeeded(Map.of("reportId", 7))),
                 null,
                 dryRun,
@@ -426,6 +426,11 @@ class RuntimeParityTest {
 
     private static ActionDefinition writeAction(String actionId, Set<ActionOrigin> allowedOrigins) {
         return definition(actionId, ActionEffect.WRITE, allowedOrigins);
+    }
+
+    private static ActionDefinition dryRunnableWriteAction(String actionId, Set<ActionOrigin> allowedOrigins) {
+        return new ActionDefinition(actionId, actionId, "", ActionEffect.WRITE, ActionRiskLevel.MEDIUM,
+                allowedOrigins, Set.of(), true, false, true, "", "", Map.of());
     }
 
     private static ActionDefinition definition(

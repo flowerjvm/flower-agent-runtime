@@ -101,6 +101,7 @@ public final class ActionExecutionSession {
                 traceSink,
                 runStore);
         session.run = Objects.requireNonNull(existingRun, "existingRun must not be null");
+        session.duplicateDecision(DuplicateActionDecision.accept());
         return session;
     }
 

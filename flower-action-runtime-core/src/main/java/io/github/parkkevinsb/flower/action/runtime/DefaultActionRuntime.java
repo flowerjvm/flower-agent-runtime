@@ -16,6 +16,8 @@ import io.github.parkkevinsb.flower.action.runtime.run.RunStore;
 import io.github.parkkevinsb.flower.action.runtime.validation.ActionInputValidator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Direct, synchronous action runtime.
@@ -32,6 +34,7 @@ public final class DefaultActionRuntime implements ResumableActionRuntime {
     private final AuditSink auditSink;
     private final TraceSink traceSink;
     private final RunStore runStore;
+    private final ConcurrentMap<String, Object> resumeLocks = new ConcurrentHashMap<>();
 
     public DefaultActionRuntime(
             ActionRegistry registry,
@@ -92,6 +95,17 @@ public final class DefaultActionRuntime implements ResumableActionRuntime {
     public ActionExecutionResult resume(String runId, ApprovalDecision decision) {
         Objects.requireNonNull(decision, "decision must not be null");
         String normalizedRunId = runId == null ? "" : runId.trim();
+        Object lock = resumeLocks.computeIfAbsent(normalizedRunId, ignored -> new Object());
+        synchronized (lock) {
+            try {
+                return resumeLocked(normalizedRunId, decision);
+            } finally {
+                resumeLocks.remove(normalizedRunId, lock);
+            }
+        }
+    }
+
+    private ActionExecutionResult resumeLocked(String normalizedRunId, ApprovalDecision decision) {
         ActionRun run = runStore.find(normalizedRunId).orElse(null);
         if (run == null) {
             return ActionExecutionResult.denied("Unknown run: " + normalizedRunId);

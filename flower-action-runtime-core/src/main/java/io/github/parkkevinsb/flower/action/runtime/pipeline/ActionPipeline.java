@@ -321,8 +321,32 @@ public final class ActionPipeline {
                 session.definition(),
                 session.proposal().input());
         if (session.policyDecision().type() == PolicyDecisionType.REQUIRE_DRY_RUN) {
+            if (!session.definition().dryRunSupported()) {
+                ActionExecutionResult result = ActionExecutionResult.denied(
+                        "Dry-run is required but not supported: " + session.definition().actionId());
+                session.result(result);
+                session.updateRun(run -> run.toBuilder()
+                        .status(ActionRunStatus.DENIED)
+                        .result(result)
+                        .failureReason(result.message())
+                        .build());
+                session.record(AuditEventType.ACTION_DENIED, Map.of("reason", result.message()));
+                return StageOutcome.SHORT_CIRCUIT;
+            }
             ActionExecutionResult dryRun = session.executor().dryRun(actionContext);
-            session.record(AuditEventType.DRY_RUN_COMPLETED, dryRun.output());
+            session.record(AuditEventType.DRY_RUN_COMPLETED, Map.of(
+                    "status", dryRun.status().name(),
+                    "message", dryRun.message(),
+                    "output", dryRun.output()));
+            if (!dryRun.terminalSuccess()) {
+                session.result(dryRun);
+                session.updateRun(run -> run.toBuilder()
+                        .status(actionRunStatus(dryRun))
+                        .result(dryRun)
+                        .failureReason(dryRun.message())
+                        .build());
+                return StageOutcome.SHORT_CIRCUIT;
+            }
         }
         session.updateRun(run -> run.toBuilder()
                 .status(ActionRunStatus.RUNNING)
@@ -361,10 +385,8 @@ public final class ActionPipeline {
     static StageOutcome finalizeExecution(ActionExecutionSession session) {
         if (session.duplicateDecision() != null
                 && session.duplicateDecision().type() == DuplicateActionDecisionType.ACCEPT) {
-            if (isDuplicateCacheable(session.result())) {
+            if (session.result().status() != ActionExecutionStatus.PENDING_APPROVAL) {
                 session.duplicateActionPolicy().complete(session.proposal(), session.result());
-            } else {
-                session.duplicateActionPolicy().release(session.proposal(), null);
             }
         }
         session.updateRun(run -> {
@@ -386,10 +408,6 @@ public final class ActionPipeline {
             return cause.getClass().getSimpleName();
         }
         return message;
-    }
-
-    private static boolean isDuplicateCacheable(ActionExecutionResult result) {
-        return result.status() != ActionExecutionStatus.PENDING_APPROVAL;
     }
 
     private static ActionRunStatus actionRunStatus(ActionExecutionResult result) {

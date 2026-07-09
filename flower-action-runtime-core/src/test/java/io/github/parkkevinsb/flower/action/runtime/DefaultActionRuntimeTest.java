@@ -13,6 +13,8 @@ import io.github.parkkevinsb.flower.action.runtime.audit.AuditSink;
 import io.github.parkkevinsb.flower.action.runtime.audit.TraceSink;
 import io.github.parkkevinsb.flower.action.runtime.duplicate.InMemoryDuplicateActionPolicy;
 import io.github.parkkevinsb.flower.action.runtime.policy.PolicyGate;
+import io.github.parkkevinsb.flower.action.runtime.policy.PolicyDecision;
+import io.github.parkkevinsb.flower.action.runtime.policy.PolicyDecisionType;
 import io.github.parkkevinsb.flower.action.runtime.validation.ActionInputValidator;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -138,6 +141,88 @@ class DefaultActionRuntimeTest {
         assertThat(secondResult).isEqualTo(firstResult);
     }
 
+    @Test
+    void dryRunFailureStopsBeforeRealExecution() {
+        ActionDefinition definition = dryRunnableDefinition("CreateReport", ActionEffect.WRITE, Set.of(ActionOrigin.USER));
+        DryRunExecutor executor = new DryRunExecutor(
+                definition,
+                ActionExecutionResult.failed("dry run rejected"),
+                ActionExecutionResult.succeeded(Map.of("reportId", 10)));
+        DefaultActionRuntime runtime = new DefaultActionRuntime(
+                new InMemoryActionRegistry(List.of(executor)),
+                null,
+                (proposal, action, context) ->
+                        new PolicyDecision(PolicyDecisionType.REQUIRE_DRY_RUN, "dry run first", Map.of()),
+                null,
+                new InMemoryDuplicateActionPolicy(),
+                null,
+                null);
+
+        ActionExecutionResult result = runtime.handle(
+                ActionProposal.user("CreateReport", Map.of(), "user-1"),
+                ExecutionContext.of("tenant-1", "user-1"));
+
+        assertThat(result.status()).isEqualTo(ActionExecutionStatus.FAILED);
+        assertThat(result.message()).contains("dry run rejected");
+        assertThat(executor.dryRunCalls()).isEqualTo(1);
+        assertThat(executor.executeCalls()).isZero();
+    }
+
+    @Test
+    void dryRunRequiredButUnsupportedIsDeniedBeforeExecution() {
+        ActionDefinition definition = definition("CreateReport", ActionEffect.WRITE, Set.of(ActionOrigin.USER));
+        DryRunExecutor executor = new DryRunExecutor(
+                definition,
+                ActionExecutionResult.succeeded(Map.of("ok", true)),
+                ActionExecutionResult.succeeded(Map.of("reportId", 10)));
+        DefaultActionRuntime runtime = new DefaultActionRuntime(
+                new InMemoryActionRegistry(List.of(executor)),
+                null,
+                (proposal, action, context) ->
+                        new PolicyDecision(PolicyDecisionType.REQUIRE_DRY_RUN, "dry run first", Map.of()),
+                null,
+                new InMemoryDuplicateActionPolicy(),
+                null,
+                null);
+
+        ActionExecutionResult result = runtime.handle(
+                ActionProposal.user("CreateReport", Map.of(), "user-1"),
+                ExecutionContext.of("tenant-1", "user-1"));
+
+        assertThat(result.status()).isEqualTo(ActionExecutionStatus.DENIED);
+        assertThat(result.message()).contains("Dry-run is required but not supported");
+        assertThat(executor.dryRunCalls()).isZero();
+        assertThat(executor.executeCalls()).isZero();
+    }
+
+    @Test
+    void criticalRiskActionRequiresApprovalByDefault() {
+        ActionDefinition definition = new ActionDefinition(
+                "DeleteProject",
+                "DeleteProject",
+                "",
+                ActionEffect.PRODUCTION_CHANGE,
+                ActionRiskLevel.CRITICAL,
+                Set.of(ActionOrigin.USER),
+                Set.of(),
+                false,
+                false,
+                true,
+                "",
+                "",
+                Map.of());
+        DefaultActionRuntime runtime = new DefaultActionRuntime(
+                new InMemoryActionRegistry(List.of(new StubExecutor(
+                        definition,
+                        ActionExecutionResult.succeeded(Map.of())))));
+
+        ActionExecutionResult result = runtime.handle(
+                ActionProposal.user("DeleteProject", Map.of(), "user-1"),
+                ExecutionContext.of("tenant-1", "user-1"));
+
+        assertThat(result.status()).isEqualTo(ActionExecutionStatus.PENDING_APPROVAL);
+    }
+
     private static ActionDefinition definition(
             String actionId,
             ActionEffect effect,
@@ -158,10 +243,72 @@ class DefaultActionRuntimeTest {
                 Map.of());
     }
 
+    private static ActionDefinition dryRunnableDefinition(
+            String actionId,
+            ActionEffect effect,
+            Set<ActionOrigin> allowedOrigins) {
+        return new ActionDefinition(
+                actionId,
+                actionId,
+                "",
+                effect,
+                ActionRiskLevel.MEDIUM,
+                allowedOrigins,
+                Set.of(),
+                true,
+                false,
+                true,
+                "",
+                "",
+                Map.of());
+    }
+
     private record StubExecutor(ActionDefinition definition, ActionExecutionResult result) implements ActionExecutor {
         @Override
         public ActionExecutionResult execute(ActionExecutionContext context) {
             return result;
+        }
+    }
+
+    private static final class DryRunExecutor implements ActionExecutor {
+        private final ActionDefinition definition;
+        private final ActionExecutionResult dryRunResult;
+        private final ActionExecutionResult executeResult;
+        private final AtomicInteger dryRunCalls = new AtomicInteger();
+        private final AtomicInteger executeCalls = new AtomicInteger();
+
+        private DryRunExecutor(
+                ActionDefinition definition,
+                ActionExecutionResult dryRunResult,
+                ActionExecutionResult executeResult) {
+            this.definition = definition;
+            this.dryRunResult = dryRunResult;
+            this.executeResult = executeResult;
+        }
+
+        @Override
+        public ActionDefinition definition() {
+            return definition;
+        }
+
+        @Override
+        public ActionExecutionResult dryRun(ActionExecutionContext context) {
+            dryRunCalls.incrementAndGet();
+            return dryRunResult;
+        }
+
+        @Override
+        public ActionExecutionResult execute(ActionExecutionContext context) {
+            executeCalls.incrementAndGet();
+            return executeResult;
+        }
+
+        int dryRunCalls() {
+            return dryRunCalls.get();
+        }
+
+        int executeCalls() {
+            return executeCalls.get();
         }
     }
 

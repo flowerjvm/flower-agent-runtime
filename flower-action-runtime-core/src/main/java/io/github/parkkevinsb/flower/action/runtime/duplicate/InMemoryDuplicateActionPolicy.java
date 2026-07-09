@@ -33,8 +33,8 @@ public final class InMemoryDuplicateActionPolicy implements DuplicateActionPolic
     @Override
     public void complete(ActionProposal proposal, ActionExecutionResult result) {
         String key = proposal.idempotencyKey();
-        running.remove(key);
         completed.put(key, result);
+        running.remove(key);
     }
 
     @Override
