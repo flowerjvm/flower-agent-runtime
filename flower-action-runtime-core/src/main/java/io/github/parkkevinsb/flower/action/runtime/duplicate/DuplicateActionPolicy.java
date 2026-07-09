@@ -15,8 +15,9 @@ public interface DuplicateActionPolicy {
     /**
      * Release an accepted reservation without caching a result.
      *
-     * <p>This is used when the runtime envelope fails before a cacheable action result exists, or when an action is
-     * suspended at a non-final boundary such as approval wait. Implementations should make this method idempotent.</p>
+     * <p>This is used when the runtime envelope fails before a cacheable action result exists. Approval waits do not
+     * release the reservation; they keep the idempotency key reserved until the run resumes and reaches a terminal
+     * result. Implementations should make this method idempotent.</p>
      */
     void release(ActionProposal proposal, Throwable cause);
 

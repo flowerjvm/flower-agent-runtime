@@ -20,6 +20,13 @@ public interface RunStore {
 
     List<ActionRun> findResumable(String tenantId);
 
+    /**
+     * Returns a store that intentionally does not remember runs.
+     *
+     * <p>This is useful for purely synchronous demos and tests. It must not be used for approval-wait or resume-capable
+     * runtimes: a {@code PENDING_APPROVAL} result keeps the duplicate reservation until resume reaches a terminal
+     * result, so a non-persistent store can leave the host unable to resume and release that reservation.</p>
+     */
     static RunStore noop() {
         return new RunStore() {
             @Override

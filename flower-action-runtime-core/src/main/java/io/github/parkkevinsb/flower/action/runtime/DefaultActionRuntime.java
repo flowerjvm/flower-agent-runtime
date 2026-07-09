@@ -95,12 +95,17 @@ public final class DefaultActionRuntime implements ResumableActionRuntime {
     public ActionExecutionResult resume(String runId, ApprovalDecision decision) {
         Objects.requireNonNull(decision, "decision must not be null");
         String normalizedRunId = runId == null ? "" : runId.trim();
-        Object lock = resumeLocks.computeIfAbsent(normalizedRunId, ignored -> new Object());
-        synchronized (lock) {
-            try {
-                return resumeLocked(normalizedRunId, decision);
-            } finally {
-                resumeLocks.remove(normalizedRunId, lock);
+        while (true) {
+            Object lock = resumeLocks.computeIfAbsent(normalizedRunId, ignored -> new Object());
+            synchronized (lock) {
+                if (resumeLocks.get(normalizedRunId) != lock) {
+                    continue;
+                }
+                try {
+                    return resumeLocked(normalizedRunId, decision);
+                } finally {
+                    resumeLocks.remove(normalizedRunId, lock);
+                }
             }
         }
     }
