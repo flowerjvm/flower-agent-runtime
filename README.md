@@ -1,7 +1,7 @@
 # flower-action-runtime
 
 [![CI](https://github.com/flowerjvm/flower-action-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/flowerjvm/flower-action-runtime/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.flowerjvm/flower-action-runtime-core.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.flowerjvm/flower-action-runtime-core/0.3.0)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.flowerjvm/flower-action-runtime-core.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.flowerjvm/flower-action-runtime-core/0.3.1)
 
 Controlled action runtime for AI-assisted business systems.
 
@@ -13,13 +13,15 @@ leaves the same audit trail.
 
 The unit of control is the action, not the agent.
 
-Project status: the current release line is `0.3.0`. The core runtime is usable
+Project status: the current release line is `0.3.1`. The core runtime is usable
 for early experiments and host-application validation. APIs may still change
 before a 1.0 release.
 
+The workflow and event-loop backends build and test against Flower `0.1.1`.
+
 ## Install From Maven Central
 
-All public modules use the `io.github.flowerjvm` group and version `0.3.0`.
+All public modules use the `io.github.flowerjvm` group and version `0.3.1`.
 No custom repository, neighboring source checkout, or `mavenLocal()` is
 required.
 
@@ -29,7 +31,7 @@ Gradle Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("io.github.flowerjvm:flower-action-runtime-core:0.3.0")
+    implementation("io.github.flowerjvm:flower-action-runtime-core:0.3.1")
 }
 ```
 
@@ -39,7 +41,7 @@ Maven:
 <dependency>
     <groupId>io.github.flowerjvm</groupId>
     <artifactId>flower-action-runtime-core</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 
@@ -47,10 +49,10 @@ Choose additional modules only when the corresponding backend is needed:
 
 | Use case | Artifact |
 | --- | --- |
-| Direct controlled-action pipeline | `io.github.flowerjvm:flower-action-runtime-core:0.3.0` |
-| Flower Flow / Step backend | `io.github.flowerjvm:flower-action-runtime-workflow:0.3.0` |
-| JDBC `ActionRun` persistence | `io.github.flowerjvm:flower-action-runtime-persistence-jdbc:0.3.0` |
-| Event-loop approval and resume backend | `io.github.flowerjvm:flower-action-runtime-eventloop:0.3.0` |
+| Direct controlled-action pipeline | `io.github.flowerjvm:flower-action-runtime-core:0.3.1` |
+| Flower Flow / Step backend | `io.github.flowerjvm:flower-action-runtime-workflow:0.3.1` |
+| JDBC `ActionRun` persistence | `io.github.flowerjvm:flower-action-runtime-persistence-jdbc:0.3.1` |
+| Event-loop approval and resume backend | `io.github.flowerjvm:flower-action-runtime-eventloop:0.3.1` |
 
 ## The Side Effects Are Already There
 
@@ -461,7 +463,7 @@ behavior.
 ## Modules
 
 Every module below except the integration-test module is published to Maven
-Central at version `0.3.0`.
+Central at version `0.3.1`.
 
 | Module | Status | Purpose |
 | --- | --- | --- |

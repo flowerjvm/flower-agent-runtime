@@ -6,7 +6,7 @@
 
     <groupId>io.github.flowerjvm</groupId>
     <artifactId>flower-action-runtime-parent</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.3.1</version>
     <packaging>pom</packaging>
 
     <name>flower-action-runtime Parent</name>
@@ -69,7 +69,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.release>21</maven.compiler.release>
 
-        <flower.version>0.1.0</flower.version>
+        <flower.version>0.1.1</flower.version>
         <jackson.version>2.21.2</jackson.version>
         <h2.version>2.2.224</h2.version>
         <junit-jupiter.version>5.10.3</junit-jupiter.version>

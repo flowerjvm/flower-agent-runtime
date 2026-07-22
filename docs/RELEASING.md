@@ -4,8 +4,8 @@ Release artifacts use the Maven group `io.github.flowerjvm`. Java API packages
 use `io.github.flowerjvm.flower.action.runtime.*`.
 
 The workflow and event-loop modules resolve Flower from Maven Central at
-`io.github.flowerjvm:flower-core:0.1.0` and
-`io.github.flowerjvm:flower-eventloop:0.1.0`. Runtime modules depend on one
+`io.github.flowerjvm:flower-core:0.1.1` and
+`io.github.flowerjvm:flower-eventloop:0.1.1`. Runtime modules depend on one
 another with `${project.version}` because they are released together. The
 integration-test module is built in CI but excluded from Central publishing.
 
@@ -25,7 +25,7 @@ integration-test module is built in CI but excluded from Central publishing.
 3. Create the matching `v`-prefixed Git tag and GitHub Release.
 4. The release workflow signs and publishes the deployable reactor artifacts,
    then waits until Central reports the deployment as published.
-5. Move `main` to the next development version, such as `0.3.1-SNAPSHOT`.
+5. Move `main` to the next development version, such as `0.3.2-SNAPSHOT`.
 
 ## Local dry run
 
